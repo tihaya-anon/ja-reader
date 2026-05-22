@@ -44,3 +44,6 @@ app-example
 
 # generated files
 CHANGELOG.md
+
+# large data files
+*.epub

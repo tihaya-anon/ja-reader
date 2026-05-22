@@ -1,98 +1,398 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { TokenChip } from '@/components/reader/token-chip';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Fonts } from '@/constants/theme';
+import { describeToken, type ReaderToken } from '@/features/reader/tokenize';
+import { useReaderState } from '@/features/reader/use-reader-state';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
-export default function HomeScreen() {
+export default function ReaderScreen() {
+  const {
+    book,
+    chapter,
+    chapterIndex,
+    paragraphProgress,
+    readingProgress,
+    selectedParagraph,
+    selectedParagraphIndex,
+    selectedTokens,
+    canGoNextChapter,
+    canGoPreviousChapter,
+    goToNextChapter,
+    goToPreviousChapter,
+    selectParagraph,
+  } = useReaderState();
+  const [selectedToken, setSelectedToken] = useState<ReaderToken | null>(
+    selectedTokens[0] ?? null
+  );
+
+  const cardBackgroundColor = useThemeColor(
+    { light: '#F7EFD8', dark: '#1E221C' },
+    'background'
+  );
+  const mutedColor = useThemeColor({ light: '#6B6257', dark: '#A39B8C' }, 'icon');
+  const accentBackgroundColor = useThemeColor(
+    { light: '#1F2A1F', dark: '#EFE3C3' },
+    'text'
+  );
+  const accentTextColor = useThemeColor(
+    { light: '#FFF6E0', dark: '#1A1A16' },
+    'background'
+  );
+  const borderColor = useThemeColor({ light: '#D9CDB6', dark: '#363A32' }, 'icon');
+  const selectedParagraphTextColor = useThemeColor(
+    { light: '#16130F', dark: '#F9F4E8' },
+    'text'
+  );
+
+  useEffect(() => {
+    if (selectedTokens.length === 0) {
+      setSelectedToken(null);
+      return;
+    }
+
+    const hasSelectedToken = selectedTokens.some(
+      (token) => token.value === selectedToken?.value && token.kind === selectedToken?.kind
+    );
+
+    if (!hasSelectedToken) {
+      setSelectedToken(selectedTokens[0]);
+    }
+  }, [selectedToken, selectedTokens]);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ThemedView style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <ThemedView
+          style={[
+            styles.heroCard,
+            {
+              backgroundColor: cardBackgroundColor,
+              borderColor,
+            },
+          ]}>
+          <ThemedText style={styles.eyebrow}>Japanese Reader MVP</ThemedText>
+          <ThemedText type="title" style={styles.bookTitle}>
+            {book.title}
+          </ThemedText>
+          <ThemedText style={styles.bookMeta}>
+            {book.author} · {book.chapterCount} chapters · {book.sourceFile}
+          </ThemedText>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+          <View style={styles.progressRow}>
+            <MetricPill label="Book" value={`${readingProgress}%`} />
+            <MetricPill label="Chapter" value={`${chapterIndex + 1}/${book.chapterCount}`} />
+            <MetricPill label="Paragraph" value={`${paragraphProgress}%`} />
+          </View>
+        </ThemedView>
+
+        <ThemedView
+          style={[
+            styles.chapterHeader,
+            {
+              borderColor,
+            },
+          ]}>
+          <View style={styles.chapterTitleWrap}>
+            <ThemedText type="subtitle" style={styles.chapterTitle}>
+              {chapter.title}
+            </ThemedText>
+            <ThemedText style={{ color: mutedColor }}>
+              Phase 1: EPUB load, chapter reading, in-memory progress
+            </ThemedText>
+          </View>
+          <View style={styles.chapterActions}>
+            <ReaderButton
+              disabled={!canGoPreviousChapter}
+              label="Previous"
+              onPress={goToPreviousChapter}
+            />
+            <ReaderButton disabled={!canGoNextChapter} label="Next" onPress={goToNextChapter} />
+          </View>
+        </ThemedView>
+
+        <ThemedView style={styles.readingPanel}>
+          {chapter.paragraphs.map((paragraph, index) => {
+            const isSelected = index === selectedParagraphIndex;
+
+            return (
+              <Pressable
+                key={`${chapter.id}-${index}`}
+                onPress={() => selectParagraph(index)}
+                style={[
+                  styles.paragraphCard,
+                  {
+                    borderColor,
+                    backgroundColor: isSelected ? cardBackgroundColor : 'transparent',
+                  },
+                ]}>
+                <ThemedText
+                  style={[
+                    styles.paragraphText,
+                    isSelected && {
+                      color: selectedParagraphTextColor,
+                    },
+                  ]}>
+                  {paragraph}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ThemedView>
+
+        <ThemedView
+          style={[
+            styles.analysisCard,
+            {
+              backgroundColor: cardBackgroundColor,
+              borderColor,
+            },
+          ]}>
+          <ThemedText type="subtitle" style={styles.analysisTitle}>
+            Phase 2: Token inspection
+          </ThemedText>
+          <ThemedText style={[styles.analysisHint, { color: mutedColor }]}>
+            Tap a paragraph above to re-tokenize it, then tap a token below to inspect the current
+            chunk. This is a lightweight heuristic tokenizer, not a full morphological analyzer yet.
+          </ThemedText>
+
+          <ThemedView style={styles.selectedParagraphPreview}>
+            <ThemedText style={styles.previewLabel}>Current paragraph</ThemedText>
+            <ThemedText style={styles.previewText}>{selectedParagraph}</ThemedText>
+          </ThemedView>
+
+          <View style={styles.tokenWrap}>
+            {selectedTokens.map((token, index) => {
+              const isSelected =
+                selectedToken?.value === token.value && selectedToken?.kind === token.kind;
+
+              return (
+                <TokenChip
+                  key={`${token.value}-${token.kind}-${index}`}
+                  isSelected={isSelected}
+                  onPress={() => setSelectedToken(token)}
+                  token={token}
+                />
+              );
+            })}
+          </View>
+
+          <View
+            style={[
+              styles.tokenDetailCard,
+              {
+                backgroundColor: accentBackgroundColor,
+              },
+            ]}>
+            <ThemedText style={[styles.tokenDetailEyebrow, { color: accentTextColor }]}>
+              Current token
+            </ThemedText>
+            <ThemedText style={[styles.tokenDetailValue, { color: accentTextColor }]}>
+              {selectedToken?.value ?? 'No token selected'}
+            </ThemedText>
+            <ThemedText style={[styles.tokenDetailMeta, { color: accentTextColor }]}>
+              {selectedToken ? describeToken(selectedToken) : 'Select a token to inspect it.'}
+            </ThemedText>
+          </View>
+        </ThemedView>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+function ReaderButton({
+  disabled,
+  label,
+  onPress,
+}: {
+  disabled?: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const buttonColor = useThemeColor({ light: '#1B241B', dark: '#F2E7C8' }, 'text');
+  const textColor = useThemeColor({ light: '#FFF7E6', dark: '#171712' }, 'background');
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.button,
+        {
+          backgroundColor: disabled ? '#8B877D' : buttonColor,
+        },
+      ]}>
+      <ThemedText style={[styles.buttonLabel, { color: textColor }]}>{label}</ThemedText>
+    </Pressable>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  const borderColor = useThemeColor({ light: '#C7B896', dark: '#42453B' }, 'icon');
+
+  return (
+    <View
+      style={[
+        styles.metricPill,
+        {
+          borderColor,
+        },
+      ]}>
+      <ThemedText style={styles.metricLabel}>{label}</ThemedText>
+      <ThemedText style={styles.metricValue}>{value}</ThemedText>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  screen: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 28,
+    paddingBottom: 44,
+    gap: 18,
+  },
+  heroCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 22,
+    gap: 14,
+  },
+  eyebrow: {
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  bookTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 34,
+    lineHeight: 40,
+  },
+  bookMeta: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  progressRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  metricPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 96,
+  },
+  metricLabel: {
+    fontSize: 12,
+    lineHeight: 14,
+    opacity: 0.74,
+  },
+  metricValue: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  chapterHeader: {
+    borderBottomWidth: 1,
+    gap: 14,
+    paddingBottom: 16,
+  },
+  chapterTitleWrap: {
+    gap: 6,
+  },
+  chapterTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 24,
+  },
+  chapterActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  button: {
+    borderRadius: 999,
+    minWidth: 108,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  buttonLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  readingPanel: {
+    gap: 12,
+  },
+  paragraphCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  paragraphText: {
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    lineHeight: 32,
+  },
+  analysisCard: {
+    borderRadius: 28,
+    borderWidth: 1,
+    padding: 20,
+    gap: 16,
+  },
+  analysisTitle: {
+    fontFamily: Fonts.rounded,
+  },
+  analysisHint: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  selectedParagraphPreview: {
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  previewLabel: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  previewText: {
+    fontFamily: Fonts.serif,
+    fontSize: 17,
+    lineHeight: 30,
+  },
+  tokenWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  tokenDetailCard: {
+    borderRadius: 24,
+    padding: 18,
+    gap: 6,
+  },
+  tokenDetailEyebrow: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  tokenDetailValue: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
+  },
+  tokenDetailMeta: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

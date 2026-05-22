@@ -1,8 +1,16 @@
-# Welcome to your Expo app 👋
+# Reader MVP
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This repository is now an Expo v54 prototype for a Japanese reading app.
 
-## Get started
+Current MVP scope:
+
+- Load the EPUB already placed in `./data`
+- Preprocess EPUB chapters into app-readable TypeScript data
+- Show chapter-based reading UI
+- Track in-memory reading progress
+- Re-tokenize the selected paragraph and inspect token clusters
+
+## Run
 
 1. Install dependencies
 
@@ -10,41 +18,28 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Rebuild the bundled book data if the EPUB in `./data` changes
 
    ```bash
-   npx expo start
+   node scripts/build-epub-data.js
    ```
 
-In the output, you'll find options to open the app in a
+3. Start Expo
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   npm run start
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Data Flow
 
-## Get a fresh project
+- Source EPUB: `data/*.epub`
+- Preprocess script: [scripts/build-epub-data.js](/home/labuser/proj/reader/scripts/build-epub-data.js)
+- EPUB parser: [scripts/parse_epub.py](/home/labuser/proj/reader/scripts/parse_epub.py)
+- Generated app data: [data/book-data.ts](/home/labuser/proj/reader/data/book-data.ts)
 
-When you're ready, run:
+## Current Limitations
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Tokenization is heuristic grouping, not a full Japanese morphological analyzer
+- Reading progress is not persisted yet
+- EPUB import is preprocessed at build time, not yet handled live inside the app
+- Notes, bookmarks, AI context, and dictionaries are not implemented yet
