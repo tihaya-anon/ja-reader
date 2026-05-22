@@ -1,14 +1,15 @@
 # Reader MVP
 
-This repository is now an Expo v54 prototype for a Japanese reading app.
+This repository is an Expo v54 prototype for a Japanese reading app.
 
 Current MVP scope:
 
-- Load the EPUB already placed in `./data`
-- Preprocess EPUB chapters into app-readable TypeScript data
+- Load an EPUB from local `data/`
+- Preprocess EPUB chapters into app-readable data
 - Show chapter-based reading UI
 - Track in-memory reading progress
-- Re-tokenize the selected paragraph and inspect token clusters
+- Support inline token selection and ruby display
+- Tokenize with `kuromoji` for lookup-oriented reading data
 
 ## Run
 
@@ -18,13 +19,22 @@ Current MVP scope:
    npm install
    ```
 
-2. Rebuild the bundled book data if the EPUB in `./data` changes
+2. Add your own EPUB to `./data`
+
+   Notes:
+
+   - `data/` is intentionally ignored by git and is treated as local reading content
+   - source books and generated token data are not committed to the repository
+
+3. Rebuild local reader data
 
    ```bash
    node scripts/build-epub-data.js
    ```
 
-3. Start Expo
+   This generates local files inside `data/`, including lightweight chapter metadata and per-chapter token JSON.
+
+4. Start Expo
 
    ```bash
    npm run start
@@ -56,18 +66,21 @@ docker run --rm -it -p 8081:8081 -p 19000:19000 -p 19001:19001 -p 19002:19002 re
 
 ## Dev Container
 
-VS Code / Cursor can open the repository with the config in [.devcontainer/devcontainer.json](/home/labuser/proj/reader/.devcontainer/devcontainer.json).
+VS Code / Cursor can open the repository with the config in [.devcontainer/devcontainer.json](/workspace/.devcontainer/devcontainer.json).
 
 ## Data Flow
 
-- Source EPUB: `data/*.epub`
-- Preprocess script: [scripts/build-epub-data.js](/home/labuser/proj/reader/scripts/build-epub-data.js)
-- EPUB parser: [scripts/parse_epub.py](/home/labuser/proj/reader/scripts/parse_epub.py)
-- Generated app data: [data/book-data.ts](/home/labuser/proj/reader/data/book-data.ts)
+- Local source EPUB: `data/*.epub`
+- Preprocess script: [scripts/build-epub-data.js](/workspace/scripts/build-epub-data.js)
+- EPUB parser: [scripts/parse_epub.py](/workspace/scripts/parse_epub.py)
+- Generated chapter metadata: `data/book-data.ts`
+- Generated chapter token files: `data/book-tokens/*.json`
 
 ## Current Limitations
 
-- Tokenization is heuristic grouping, not a full Japanese morphological analyzer
+- `data/` must be generated locally and is not distributed with the repo
+- `kuromoji` is used for lightweight reading-oriented tokenization, not full dictionary lookup on its own
+- Ruby rendering prefers EPUB-provided ruby; tokenizer readings are supporting metadata
 - Reading progress is not persisted yet
 - EPUB import is preprocessed at build time, not yet handled live inside the app
 - Notes, bookmarks, AI context, and dictionaries are not implemented yet
