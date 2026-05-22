@@ -47,3 +47,4 @@ CHANGELOG.md
 
 # large data files
 *.epub
+data/

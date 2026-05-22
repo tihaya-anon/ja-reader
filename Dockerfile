@@ -34,7 +34,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
   && rm -rf /var/lib/apt/lists/*
 
-# Common Python tooling for EPUB/dictionary/text-processing workflows.
 RUN python3 -m pip install --break-system-packages \
     beautifulsoup4 \
     ebooklib \
@@ -42,7 +41,6 @@ RUN python3 -m pip install --break-system-packages \
     mistletoe \
     rapidfuzz
 
-# CLI tooling used in this project and likely upcoming workflows.
 RUN npm install -g \
     @anthropic-ai/claude-code \
     @openai/codex \
@@ -50,12 +48,6 @@ RUN npm install -g \
     eas-cli \
     git-cliff
 
-COPY package.json package-lock.json ./
-
-RUN npm ci
-
-COPY . .
-
 EXPOSE 8081 19000 19001 19002
 
-CMD ["npm", "run", "start"]
+CMD ["sleep", "infinity"]

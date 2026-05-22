@@ -1,11 +1,12 @@
 {
   "name": "reader-dev",
-  "build": {
-    "dockerfile": "../Dockerfile",
-    "context": ".."
-  },
+  "image": "reader-dev:devcontainer",
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "workspaceFolder": "/workspace",
+
   "forwardPorts": [8081, 19000, 19001, 19002],
+
   "portsAttributes": {
     "8081": {
       "label": "Expo Metro"
@@ -20,7 +21,9 @@
       "label": "Expo Tunnel"
     }
   },
-  "postCreateCommand": "npm ci",
+
+  "postCreateCommand": "if [ -f package-lock.json ]; then npm ci; else npm install; fi",
+
   "customizations": {
     "vscode": {
       "extensions": [
@@ -41,6 +44,7 @@
       }
     }
   },
+
   "remoteEnv": {
     "EXPO_NO_DOCTOR": "1",
     "PYTHONUNBUFFERED": "1"
