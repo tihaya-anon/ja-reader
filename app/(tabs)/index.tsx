@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ReaderParagraph } from '@/data/book-data';
 import { ThemedView } from '@/components/themed-view';
@@ -21,6 +21,17 @@ type ReaderSelection =
       end: number;
     };
 
+type ParagraphUnit =
+  | {
+      type: 'token';
+      token: ReaderToken;
+    }
+  | {
+      type: 'ruby';
+      token: ReaderToken;
+      reading: string;
+    };
+
 const DOUBLE_TAP_DELAY_MS = 240;
 
 export default function ReaderScreen() {
@@ -34,8 +45,13 @@ export default function ReaderScreen() {
     null
   );
 
-  const paragraphTokens = useMemo(
-    () => chapter.paragraphs.map((paragraph) => tokenizeReaderParagraph(paragraph)),
+  const paragraphUnits = useMemo(
+    () =>
+      chapter.paragraphs.map((paragraph) => ({
+        paragraph,
+        tokens: tokenizeReaderParagraph(paragraph),
+        units: buildParagraphUnits(paragraph),
+      })),
     [chapter.paragraphs]
   );
 
@@ -126,186 +142,117 @@ export default function ReaderScreen() {
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.readingPanel}>
-          {chapter.paragraphs.map((paragraph, index) => {
-            const tokens = paragraphTokens[index] ?? [];
-
-            return (
-              <Text
-                key={`${chapter.id}-${index}`}
-                style={[
-                  styles.paragraphText,
-                  {
-                    color: textColor,
-                    opacity: index === selectedParagraphIndex ? 1 : 0.92,
-                  },
-                ]}>
-                {renderParagraphSegments({
-                  paragraph,
+          {paragraphUnits.map(({ paragraph, units }, index) => (
+            <View key={`${chapter.id}-${index}`} style={styles.paragraphRow}>
+              {units.map((unit) => {
+                const token = unit.token;
+                const isHighlighted = getTokenHighlightState({
                   paragraphIndex: index,
-                  rubyColor,
-                  selection,
                   selectedParagraphIndex,
-                  sentenceHighlightColor,
-                  tokenHighlightColor,
-                  tokens,
-                  onTokenPress: handleTokenPress,
-                })}
-              </Text>
-            );
-          })}
+                  selection,
+                  token,
+                });
+
+                return (
+                  <Pressable
+                    key={`${index}-${token.start}-${token.end}-${token.value}`}
+                    onPress={() => handleTokenPress(index, paragraph, token)}
+                    style={[
+                      styles.inlineUnit,
+                      isHighlighted.sentence && {
+                        backgroundColor: sentenceHighlightColor,
+                      },
+                      isHighlighted.token && {
+                        backgroundColor: tokenHighlightColor,
+                      },
+                    ]}>
+                    {unit.type === 'ruby' ? (
+                      <View style={styles.rubyUnit}>
+                        <Text style={[styles.rubyText, { color: rubyColor }]}>{unit.reading}</Text>
+                        <Text style={[styles.baseText, { color: textColor }]}>{token.value}</Text>
+                      </View>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.baseText,
+                          {
+                            color: textColor,
+                            opacity: index === selectedParagraphIndex ? 1 : 0.92,
+                          },
+                        ]}>
+                        {token.value}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
         </View>
       </ScrollView>
     </ThemedView>
   );
 }
 
-function renderParagraphSegments({
-  paragraph,
-  paragraphIndex,
-  rubyColor,
-  selection,
-  selectedParagraphIndex,
-  sentenceHighlightColor,
-  tokenHighlightColor,
-  tokens,
-  onTokenPress,
-}: {
-  paragraph: ReaderParagraph;
-  paragraphIndex: number;
-  rubyColor: string;
-  selection: ReaderSelection | null;
-  selectedParagraphIndex: number;
-  sentenceHighlightColor: string;
-  tokenHighlightColor: string;
-  tokens: ReaderToken[];
-  onTokenPress: (paragraphIndex: number, paragraph: ReaderParagraph, token: ReaderToken) => void;
-}) {
-  let segmentOffset = 0;
+function buildParagraphUnits(paragraph: ReaderParagraph): ParagraphUnit[] {
+  const tokens = tokenizeReaderParagraph(paragraph);
+  const units: ParagraphUnit[] = [];
   let tokenIndex = 0;
+  let segmentOffset = 0;
 
-  return paragraph.segments.map((segment, segmentIndex) => {
+  for (const segment of paragraph.segments) {
     if (segment.type === 'text') {
-      const segmentTokens: ReaderToken[] = [];
       while (tokenIndex < tokens.length && tokens[tokenIndex].start < segmentOffset + segment.text.length) {
-        segmentTokens.push(tokens[tokenIndex]);
+        units.push({ type: 'token', token: tokens[tokenIndex] });
         tokenIndex += 1;
       }
       segmentOffset += segment.text.length;
-
-      return (
-        <Fragment key={`${paragraphIndex}-text-${segmentIndex}`}>
-          {segmentTokens.map((token) => renderSelectableToken({
-            paragraph,
-            paragraphIndex,
-            selectedParagraphIndex,
-            selection,
-            sentenceHighlightColor,
-            tokenHighlightColor,
-            token,
-            onTokenPress,
-          }))}
-        </Fragment>
-      );
+      continue;
     }
 
     const rubyToken = tokens[tokenIndex];
-    tokenIndex += 1;
+    if (rubyToken) {
+      units.push({
+        type: 'ruby',
+        token: rubyToken,
+        reading: segment.reading,
+      });
+      tokenIndex += 1;
+    }
     segmentOffset += segment.base.length;
+  }
 
-    return (
-      <Text
-        key={`${paragraphIndex}-ruby-${segmentIndex}`}
-        onPress={() => onTokenPress(paragraphIndex, paragraph, rubyToken)}
-        style={getTokenHighlightStyle({
-          paragraphIndex,
-          selectedParagraphIndex,
-          selection,
-          sentenceHighlightColor,
-          tokenHighlightColor,
-          token: rubyToken,
-        })}>
-        <Text style={styles.rubyWrap}>
-          <Text style={[styles.rubyText, { color: rubyColor }]}>{segment.reading}</Text>
-          <Text style={styles.rubyBase}>{segment.base}</Text>
-        </Text>
-      </Text>
-    );
-  });
+  return units;
 }
 
-function renderSelectableToken({
-  paragraph,
+function getTokenHighlightState({
   paragraphIndex,
   selectedParagraphIndex,
   selection,
-  sentenceHighlightColor,
-  tokenHighlightColor,
-  token,
-  onTokenPress,
-}: {
-  paragraph: ReaderParagraph;
-  paragraphIndex: number;
-  selectedParagraphIndex: number;
-  selection: ReaderSelection | null;
-  sentenceHighlightColor: string;
-  tokenHighlightColor: string;
-  token: ReaderToken;
-  onTokenPress: (paragraphIndex: number, paragraph: ReaderParagraph, token: ReaderToken) => void;
-}) {
-  return (
-    <Text
-      key={`${paragraphIndex}-${token.start}-${token.end}-${token.value}`}
-      onPress={() => onTokenPress(paragraphIndex, paragraph, token)}
-      style={getTokenHighlightStyle({
-        paragraphIndex,
-        selectedParagraphIndex,
-        selection,
-        sentenceHighlightColor,
-        tokenHighlightColor,
-        token,
-      })}>
-      {token.value}
-    </Text>
-  );
-}
-
-function getTokenHighlightStyle({
-  paragraphIndex,
-  selectedParagraphIndex,
-  selection,
-  sentenceHighlightColor,
-  tokenHighlightColor,
   token,
 }: {
   paragraphIndex: number;
   selectedParagraphIndex: number;
   selection: ReaderSelection | null;
-  sentenceHighlightColor: string;
-  tokenHighlightColor: string;
   token: ReaderToken;
 }) {
-  const isTokenSelected =
+  const tokenSelected =
     paragraphIndex === selectedParagraphIndex &&
     selection?.type === 'token' &&
     selection.token.start === token.start &&
     selection.token.end === token.end &&
     selection.token.kind === token.kind &&
     selection.token.value === token.value;
-  const isSentenceSelected =
+  const sentenceSelected =
     paragraphIndex === selectedParagraphIndex &&
     selection?.type === 'sentence' &&
     token.start >= selection.start &&
     token.end <= selection.end;
 
-  return [
-    styles.inlineToken,
-    isSentenceSelected && {
-      backgroundColor: sentenceHighlightColor,
-    },
-    isTokenSelected && {
-      backgroundColor: tokenHighlightColor,
-    },
-  ];
+  return {
+    token: tokenSelected,
+    sentence: sentenceSelected,
+  };
 }
 
 function buildSentenceSelection(paragraph: string, token: ReaderToken): ReaderSelection {
@@ -354,29 +301,32 @@ const styles = StyleSheet.create({
   readingPanel: {
     gap: 34,
   },
-  paragraphText: {
+  paragraphRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+    rowGap: 10,
+    columnGap: 0,
+  },
+  inlineUnit: {
+    borderRadius: 6,
+    justifyContent: 'flex-end',
+  },
+  baseText: {
     fontFamily: Fonts.serif,
     fontSize: 21,
-    lineHeight: 42,
+    lineHeight: 34,
     letterSpacing: 0.2,
   },
-  inlineToken: {
-    borderRadius: 6,
-  },
-  rubyWrap: {
+  rubyUnit: {
+    minHeight: 46,
     alignItems: 'center',
-    display: 'inline-flex',
-    flexDirection: 'column',
-    verticalAlign: 'top',
+    justifyContent: 'flex-end',
   },
   rubyText: {
     fontFamily: Fonts.sans,
     fontSize: 10,
     lineHeight: 12,
-  },
-  rubyBase: {
-    fontFamily: Fonts.serif,
-    fontSize: 21,
-    lineHeight: 28,
+    marginBottom: 1,
   },
 });
