@@ -30,6 +30,34 @@ Current MVP scope:
    npm run start
    ```
 
+## Docker Dev Environment
+
+The development container includes:
+
+- Node.js 20
+- Python 3 + `pip`
+- Expo CLI and EAS CLI
+- `codex` and `claude` CLIs
+- `git-cliff`
+- System tools commonly needed for EPUB/dictionary processing: `unzip`, `zip`, `sqlite3`, `git`, `ripgrep`, `jq`, build tools
+- Python libraries that are likely useful for upcoming reader work: `ebooklib`, `beautifulsoup4`, `lxml`, `rapidfuzz`, `mistletoe`
+
+Build:
+
+```bash
+docker build -t reader-dev .
+```
+
+Run:
+
+```bash
+docker run --rm -it -p 8081:8081 -p 19000:19000 -p 19001:19001 -p 19002:19002 reader-dev
+```
+
+## Dev Container
+
+VS Code / Cursor can open the repository with the config in [.devcontainer/devcontainer.json](/home/labuser/proj/reader/.devcontainer/devcontainer.json).
+
 ## Data Flow
 
 - Source EPUB: `data/*.epub`

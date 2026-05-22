@@ -1,0 +1,16 @@
+.git
+.expo
+.codex
+.claude
+.agents
+.vscode
+node_modules
+dist
+web-build
+coverage
+CHANGELOG.md
+*.log
+*.tsbuildinfo
+*.orig.*
+ios
+android

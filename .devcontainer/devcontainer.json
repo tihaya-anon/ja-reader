@@ -1,0 +1,48 @@
+{
+  "name": "reader-dev",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [8081, 19000, 19001, 19002],
+  "portsAttributes": {
+    "8081": {
+      "label": "Expo Metro"
+    },
+    "19000": {
+      "label": "Expo Dev Tools"
+    },
+    "19001": {
+      "label": "Expo LAN"
+    },
+    "19002": {
+      "label": "Expo Tunnel"
+    }
+  },
+  "postCreateCommand": "npm ci",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "bradlc.vscode-tailwindcss",
+        "expo.vscode-expo-tools"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "eslint.workingDirectories": [
+          {
+            "mode": "auto"
+          }
+        ]
+      }
+    }
+  },
+  "remoteEnv": {
+    "EXPO_NO_DOCTOR": "1",
+    "PYTHONUNBUFFERED": "1"
+  }
+}
