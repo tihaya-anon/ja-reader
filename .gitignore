@@ -46,5 +46,6 @@ app-example
 CHANGELOG.md
 
 # large data files
-*.epub
-data/
+data/book-tokens
+data/book-data.ts
+data/book-token-files.ts
