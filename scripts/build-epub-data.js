@@ -14,10 +14,19 @@ function main() {
 
   const book = parseEpubWithPython(epubPath);
   const fileContents = [
+    'export type ReaderInlineSegment =',
+    "  | { type: 'text'; text: string }",
+    "  | { type: 'ruby'; base: string; reading: string };",
+    '',
+    'export type ReaderParagraph = {',
+    '  text: string;',
+    '  segments: ReaderInlineSegment[];',
+    '};',
+    '',
     'export type ReaderChapter = {',
     '  id: string;',
     '  title: string;',
-    '  paragraphs: string[];',
+    '  paragraphs: ReaderParagraph[];',
     '  wordCount: number;',
     '};',
     '',
@@ -51,6 +60,7 @@ function parseEpubWithPython(epubPath) {
   const result = spawnSync('python3', [scriptPath, epubPath], {
     cwd: projectRoot,
     encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 64,
   });
 
   if (result.status !== 0) {

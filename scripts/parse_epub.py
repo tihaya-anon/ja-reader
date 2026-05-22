@@ -7,6 +7,9 @@ from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree as ET
 
 
+Segment = dict[str, str]
+
+
 def main() -> None:
     epub_path = Path(sys.argv[1])
 
@@ -74,12 +77,9 @@ def build_chapter(chapter_index: int, fallback_id: str, chapter_xml: str) -> dic
         or f"Chapter {chapter_index + 1}"
     )
 
-    paragraphs = [
-        sanitize_paragraph(extract_text(paragraph))
-        for paragraph in root.findall(".//xhtml:p", namespace)
-    ]
-    paragraphs = [paragraph for paragraph in paragraphs if paragraph]
-    word_count = sum(len(tokenize_japanese(paragraph)) for paragraph in paragraphs)
+    paragraphs = [build_paragraph(paragraph) for paragraph in root.findall(".//xhtml:p", namespace)]
+    paragraphs = [paragraph for paragraph in paragraphs if paragraph["text"]]
+    word_count = sum(len(tokenize_japanese(paragraph["text"])) for paragraph in paragraphs)
 
     return {
         "id": slugify(f"{chapter_index + 1}-{fallback_id}"),
@@ -89,7 +89,92 @@ def build_chapter(chapter_index: int, fallback_id: str, chapter_xml: str) -> dic
     }
 
 
-def extract_text(element: ET.Element | None) -> str:
+def build_paragraph(element: ET.Element | None) -> dict:
+    segments: list[Segment] = []
+
+    def append_text(value: str | None) -> None:
+        cleaned = sanitize_text(value)
+        if not cleaned:
+            return
+
+        if segments and segments[-1]["type"] == "text":
+            segments[-1]["text"] += cleaned
+        else:
+            segments.append({"type": "text", "text": cleaned})
+
+    def walk(node: ET.Element) -> None:
+        append_text(node.text)
+
+        for child in node:
+            if child.tag.endswith("ruby"):
+                ruby_segment = extract_ruby_segment(child)
+                if ruby_segment is not None:
+                    segments.append(ruby_segment)
+            elif not child.tag.endswith("rt"):
+                walk(child)
+
+            append_text(child.tail)
+
+    if element is not None:
+        walk(element)
+
+    merged_segments: list[Segment] = []
+    for segment in segments:
+        if segment["type"] == "text":
+            segment_text = sanitize_text(segment["text"])
+            if not segment_text:
+                continue
+            if merged_segments and merged_segments[-1]["type"] == "text":
+                merged_segments[-1]["text"] += segment_text
+            else:
+                merged_segments.append({"type": "text", "text": segment_text})
+            continue
+
+        base = sanitize_text(segment["base"])
+        reading = sanitize_text(segment["reading"])
+        if not base:
+            continue
+        if not reading:
+            if merged_segments and merged_segments[-1]["type"] == "text":
+                merged_segments[-1]["text"] += base
+            else:
+                merged_segments.append({"type": "text", "text": base})
+            continue
+        merged_segments.append({"type": "ruby", "base": base, "reading": reading})
+
+    paragraph_text = "".join(
+        segment["text"] if segment["type"] == "text" else segment["base"]
+        for segment in merged_segments
+    )
+
+    return {
+        "text": paragraph_text,
+        "segments": merged_segments,
+    }
+
+
+def extract_ruby_segment(node: ET.Element) -> Segment | None:
+    base_parts: list[str] = []
+    reading_parts: list[str] = []
+
+    append_if_present(base_parts, node.text)
+
+    for child in node:
+        if child.tag.endswith("rt"):
+            append_if_present(reading_parts, extract_all_text(child))
+        else:
+            append_if_present(base_parts, extract_plain_text(child))
+        append_if_present(base_parts, child.tail)
+
+    base = sanitize_text("".join(base_parts))
+    reading = sanitize_text("".join(reading_parts))
+    if not base:
+        return None
+
+    return {"type": "ruby", "base": base, "reading": reading}
+
+
+def extract_plain_text(element: ET.Element | None) -> str:
     if element is None:
         return ""
 
@@ -97,27 +182,44 @@ def extract_text(element: ET.Element | None) -> str:
 
     def walk(node: ET.Element) -> None:
         if node.tag.endswith("rt"):
-            if node.tail:
-                text_parts.append(node.tail)
             return
 
-        if node.text:
-            text_parts.append(node.text)
-
+        append_if_present(text_parts, node.text)
         for child in node:
             walk(child)
-
-        if node.tail:
-            text_parts.append(node.tail)
+            append_if_present(text_parts, child.tail)
 
     walk(element)
     return "".join(text_parts)
 
 
-def sanitize_paragraph(value: str) -> str:
+def extract_all_text(element: ET.Element | None) -> str:
+    if element is None:
+        return ""
+
+    text_parts: list[str] = []
+
+    def walk(node: ET.Element) -> None:
+        append_if_present(text_parts, node.text)
+        for child in node:
+            walk(child)
+            append_if_present(text_parts, child.tail)
+
+    walk(element)
+    return "".join(text_parts)
+
+
+def sanitize_text(value: str | None) -> str:
+    if not value:
+        return ""
     cleaned = html.unescape(value).replace("\u00a0", " ")
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned.strip()
+
+
+def append_if_present(parts: list[str], value: str | None) -> None:
+    if value:
+        parts.append(value)
 
 
 def tokenize_japanese(text: str) -> list[str]:
@@ -167,7 +269,7 @@ def classify_character(character: str) -> str:
 
 
 def get_text(element: ET.Element | None, fallback: str = "") -> str:
-    return sanitize_paragraph(extract_text(element)) if element is not None else fallback
+    return sanitize_text(extract_plain_text(element)) if element is not None else fallback
 
 
 def slugify(value: str) -> str:

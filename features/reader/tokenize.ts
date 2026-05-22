@@ -9,16 +9,22 @@ export type TokenKind =
 export type ReaderToken = {
   value: string;
   kind: TokenKind;
+  start: number;
+  end: number;
+  reading?: string;
 };
 
 export function tokenizeJapanese(text: string): ReaderToken[] {
   const tokens: ReaderToken[] = [];
   let currentValue = '';
   let currentKind: TokenKind | null = null;
+  let currentStart = 0;
+  let currentIndex = 0;
 
   for (const character of text) {
     if (/\s/u.test(character)) {
       flushCurrentToken();
+      currentIndex += character.length;
       continue;
     }
 
@@ -26,12 +32,15 @@ export function tokenizeJapanese(text: string): ReaderToken[] {
 
     if (currentKind === nextKind) {
       currentValue += character;
+      currentIndex += character.length;
       continue;
     }
 
     flushCurrentToken();
     currentValue = character;
     currentKind = nextKind;
+    currentStart = currentIndex;
+    currentIndex += character.length;
   }
 
   flushCurrentToken();
@@ -44,7 +53,12 @@ export function tokenizeJapanese(text: string): ReaderToken[] {
       return;
     }
 
-    tokens.push({ value: currentValue, kind: currentKind });
+    tokens.push({
+      value: currentValue,
+      kind: currentKind,
+      start: currentStart,
+      end: currentStart + currentValue.length,
+    });
     currentValue = '';
     currentKind = null;
   }
@@ -70,6 +84,10 @@ function classifyCharacter(character: string): TokenKind {
 }
 
 export function describeToken(token: ReaderToken) {
+  if (token.reading) {
+    return `Reading: ${token.reading}`;
+  }
+
   switch (token.kind) {
     case 'kanji':
       return 'Kanji cluster';

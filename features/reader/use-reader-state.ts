@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { readerBook } from '@/data/book-data';
-import { tokenizeJapanese } from '@/features/reader/tokenize';
+import { tokenizeReaderParagraph } from '@/features/reader/paragraph';
 
 export function useReaderState() {
   const [chapterIndex, setChapterIndex] = useState(0);
@@ -9,9 +9,9 @@ export function useReaderState() {
 
   const chapter = readerBook.chapters[chapterIndex];
   const selectedParagraph =
-    chapter.paragraphs[selectedParagraphIndex] ?? chapter.paragraphs[0] ?? '';
+    chapter.paragraphs[selectedParagraphIndex] ?? chapter.paragraphs[0] ?? { text: '', segments: [] };
   const selectedTokens = useMemo(
-    () => tokenizeJapanese(selectedParagraph),
+    () => tokenizeReaderParagraph(selectedParagraph),
     [selectedParagraph]
   );
 

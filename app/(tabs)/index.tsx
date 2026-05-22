@@ -1,256 +1,345 @@
-import { useEffect, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { TokenChip } from '@/components/reader/token-chip';
-import { ThemedText } from '@/components/themed-text';
+import type { ReaderParagraph } from '@/data/book-data';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/theme';
-import { describeToken, type ReaderToken } from '@/features/reader/tokenize';
+import { tokenizeReaderParagraph } from '@/features/reader/paragraph';
+import type { ReaderToken } from '@/features/reader/tokenize';
 import { useReaderState } from '@/features/reader/use-reader-state';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
+type ReaderSelection =
+  | {
+      type: 'token';
+      token: ReaderToken;
+    }
+  | {
+      type: 'sentence';
+      text: string;
+      start: number;
+      end: number;
+    };
+
+const DOUBLE_TAP_DELAY_MS = 240;
+
 export default function ReaderScreen() {
-  const {
-    book,
-    chapter,
-    chapterIndex,
-    paragraphProgress,
-    readingProgress,
-    selectedParagraph,
-    selectedParagraphIndex,
-    selectedTokens,
-    canGoNextChapter,
-    canGoPreviousChapter,
-    goToNextChapter,
-    goToPreviousChapter,
-    selectParagraph,
-  } = useReaderState();
-  const [selectedToken, setSelectedToken] = useState<ReaderToken | null>(
-    selectedTokens[0] ?? null
+  const { chapter, selectedParagraph, selectedParagraphIndex, selectedTokens, selectParagraph } =
+    useReaderState();
+  const [selection, setSelection] = useState<ReaderSelection | null>(
+    selectedTokens[0] ? { type: 'token', token: selectedTokens[0] } : null
+  );
+  const pendingTapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTapRef = useRef<{ paragraphIndex: number; tokenStart: number; time: number } | null>(
+    null
   );
 
-  const cardBackgroundColor = useThemeColor(
-    { light: '#F7EFD8', dark: '#1E221C' },
+  const paragraphTokens = useMemo(
+    () => chapter.paragraphs.map((paragraph) => tokenizeReaderParagraph(paragraph)),
+    [chapter.paragraphs]
+  );
+
+  const textColor = useThemeColor({ light: '#16130F', dark: '#F9F4E8' }, 'text');
+  const rubyColor = useThemeColor({ light: '#7C6B4A', dark: '#CDBB96' }, 'icon');
+  const tokenHighlightColor = useThemeColor(
+    { light: '#CDB48A', dark: '#5E533E' },
     'background'
   );
-  const mutedColor = useThemeColor({ light: '#6B6257', dark: '#A39B8C' }, 'icon');
-  const accentBackgroundColor = useThemeColor(
-    { light: '#1F2A1F', dark: '#EFE3C3' },
-    'text'
-  );
-  const accentTextColor = useThemeColor(
-    { light: '#FFF6E0', dark: '#1A1A16' },
+  const sentenceHighlightColor = useThemeColor(
+    { light: '#E9DEC1', dark: '#32372D' },
     'background'
-  );
-  const borderColor = useThemeColor({ light: '#D9CDB6', dark: '#363A32' }, 'icon');
-  const selectedParagraphTextColor = useThemeColor(
-    { light: '#16130F', dark: '#F9F4E8' },
-    'text'
   );
 
   useEffect(() => {
     if (selectedTokens.length === 0) {
-      setSelectedToken(null);
+      setSelection(null);
       return;
     }
 
-    const hasSelectedToken = selectedTokens.some(
-      (token) => token.value === selectedToken?.value && token.kind === selectedToken?.kind
-    );
+    setSelection((currentSelection) => {
+      if (!currentSelection) {
+        return { type: 'token', token: selectedTokens[0] };
+      }
 
-    if (!hasSelectedToken) {
-      setSelectedToken(selectedTokens[0]);
+      if (currentSelection.type === 'token') {
+        const nextToken = selectedTokens.find(
+          (token) =>
+            token.start === currentSelection.token.start &&
+            token.end === currentSelection.token.end &&
+            token.kind === currentSelection.token.kind &&
+            token.value === currentSelection.token.value
+        );
+
+        return nextToken
+          ? { type: 'token', token: nextToken }
+          : { type: 'token', token: selectedTokens[0] };
+      }
+
+      return currentSelection.end <= selectedParagraph.text.length
+        ? currentSelection
+        : { type: 'token', token: selectedTokens[0] };
+    });
+  }, [selectedParagraph, selectedTokens]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingTapRef.current) {
+        clearTimeout(pendingTapRef.current);
+      }
+    };
+  }, []);
+
+  function handleTokenPress(paragraphIndex: number, paragraph: ReaderParagraph, token: ReaderToken) {
+    const now = Date.now();
+    const lastTap = lastTapRef.current;
+    const isDoubleTap =
+      lastTap &&
+      lastTap.paragraphIndex === paragraphIndex &&
+      lastTap.tokenStart === token.start &&
+      now - lastTap.time <= DOUBLE_TAP_DELAY_MS;
+
+    if (pendingTapRef.current) {
+      clearTimeout(pendingTapRef.current);
+      pendingTapRef.current = null;
     }
-  }, [selectedToken, selectedTokens]);
+
+    selectParagraph(paragraphIndex);
+
+    if (isDoubleTap) {
+      lastTapRef.current = null;
+      setSelection(buildSentenceSelection(paragraph.text, token));
+      return;
+    }
+
+    lastTapRef.current = {
+      paragraphIndex,
+      tokenStart: token.start,
+      time: now,
+    };
+    pendingTapRef.current = setTimeout(() => {
+      setSelection({ type: 'token', token });
+      pendingTapRef.current = null;
+    }, DOUBLE_TAP_DELAY_MS);
+  }
 
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedView
-          style={[
-            styles.heroCard,
-            {
-              backgroundColor: cardBackgroundColor,
-              borderColor,
-            },
-          ]}>
-          <ThemedText style={styles.eyebrow}>Japanese Reader MVP</ThemedText>
-          <ThemedText type="title" style={styles.bookTitle}>
-            {book.title}
-          </ThemedText>
-          <ThemedText style={styles.bookMeta}>
-            {book.author} · {book.chapterCount} chapters · {book.sourceFile}
-          </ThemedText>
-
-          <View style={styles.progressRow}>
-            <MetricPill label="Book" value={`${readingProgress}%`} />
-            <MetricPill label="Chapter" value={`${chapterIndex + 1}/${book.chapterCount}`} />
-            <MetricPill label="Paragraph" value={`${paragraphProgress}%`} />
-          </View>
-        </ThemedView>
-
-        <ThemedView
-          style={[
-            styles.chapterHeader,
-            {
-              borderColor,
-            },
-          ]}>
-          <View style={styles.chapterTitleWrap}>
-            <ThemedText type="subtitle" style={styles.chapterTitle}>
-              {chapter.title}
-            </ThemedText>
-            <ThemedText style={{ color: mutedColor }}>
-              Phase 1: EPUB load, chapter reading, in-memory progress
-            </ThemedText>
-          </View>
-          <View style={styles.chapterActions}>
-            <ReaderButton
-              disabled={!canGoPreviousChapter}
-              label="Previous"
-              onPress={goToPreviousChapter}
-            />
-            <ReaderButton disabled={!canGoNextChapter} label="Next" onPress={goToNextChapter} />
-          </View>
-        </ThemedView>
-
-        <ThemedView style={styles.readingPanel}>
+        <View style={styles.readingPanel}>
           {chapter.paragraphs.map((paragraph, index) => {
-            const isSelected = index === selectedParagraphIndex;
+            const tokens = paragraphTokens[index] ?? [];
 
             return (
-              <Pressable
+              <Text
                 key={`${chapter.id}-${index}`}
-                onPress={() => selectParagraph(index)}
                 style={[
-                  styles.paragraphCard,
+                  styles.paragraphText,
                   {
-                    borderColor,
-                    backgroundColor: isSelected ? cardBackgroundColor : 'transparent',
+                    color: textColor,
+                    opacity: index === selectedParagraphIndex ? 1 : 0.92,
                   },
                 ]}>
-                <ThemedText
-                  style={[
-                    styles.paragraphText,
-                    isSelected && {
-                      color: selectedParagraphTextColor,
-                    },
-                  ]}>
-                  {paragraph}
-                </ThemedText>
-              </Pressable>
+                {renderParagraphSegments({
+                  paragraph,
+                  paragraphIndex: index,
+                  rubyColor,
+                  selection,
+                  selectedParagraphIndex,
+                  sentenceHighlightColor,
+                  tokenHighlightColor,
+                  tokens,
+                  onTokenPress: handleTokenPress,
+                })}
+              </Text>
             );
           })}
-        </ThemedView>
-
-        <ThemedView
-          style={[
-            styles.analysisCard,
-            {
-              backgroundColor: cardBackgroundColor,
-              borderColor,
-            },
-          ]}>
-          <ThemedText type="subtitle" style={styles.analysisTitle}>
-            Phase 2: Token inspection
-          </ThemedText>
-          <ThemedText style={[styles.analysisHint, { color: mutedColor }]}>
-            Tap a paragraph above to re-tokenize it, then tap a token below to inspect the current
-            chunk. This is a lightweight heuristic tokenizer, not a full morphological analyzer yet.
-          </ThemedText>
-
-          <ThemedView style={styles.selectedParagraphPreview}>
-            <ThemedText style={styles.previewLabel}>Current paragraph</ThemedText>
-            <ThemedText style={styles.previewText}>{selectedParagraph}</ThemedText>
-          </ThemedView>
-
-          <View style={styles.tokenWrap}>
-            {selectedTokens.map((token, index) => {
-              const isSelected =
-                selectedToken?.value === token.value && selectedToken?.kind === token.kind;
-
-              return (
-                <TokenChip
-                  key={`${token.value}-${token.kind}-${index}`}
-                  isSelected={isSelected}
-                  onPress={() => setSelectedToken(token)}
-                  token={token}
-                />
-              );
-            })}
-          </View>
-
-          <View
-            style={[
-              styles.tokenDetailCard,
-              {
-                backgroundColor: accentBackgroundColor,
-              },
-            ]}>
-            <ThemedText style={[styles.tokenDetailEyebrow, { color: accentTextColor }]}>
-              Current token
-            </ThemedText>
-            <ThemedText style={[styles.tokenDetailValue, { color: accentTextColor }]}>
-              {selectedToken?.value ?? 'No token selected'}
-            </ThemedText>
-            <ThemedText style={[styles.tokenDetailMeta, { color: accentTextColor }]}>
-              {selectedToken ? describeToken(selectedToken) : 'Select a token to inspect it.'}
-            </ThemedText>
-          </View>
-        </ThemedView>
+        </View>
       </ScrollView>
     </ThemedView>
   );
 }
 
-function ReaderButton({
-  disabled,
-  label,
-  onPress,
+function renderParagraphSegments({
+  paragraph,
+  paragraphIndex,
+  rubyColor,
+  selection,
+  selectedParagraphIndex,
+  sentenceHighlightColor,
+  tokenHighlightColor,
+  tokens,
+  onTokenPress,
 }: {
-  disabled?: boolean;
-  label: string;
-  onPress: () => void;
+  paragraph: ReaderParagraph;
+  paragraphIndex: number;
+  rubyColor: string;
+  selection: ReaderSelection | null;
+  selectedParagraphIndex: number;
+  sentenceHighlightColor: string;
+  tokenHighlightColor: string;
+  tokens: ReaderToken[];
+  onTokenPress: (paragraphIndex: number, paragraph: ReaderParagraph, token: ReaderToken) => void;
 }) {
-  const buttonColor = useThemeColor({ light: '#1B241B', dark: '#F2E7C8' }, 'text');
-  const textColor = useThemeColor({ light: '#FFF7E6', dark: '#171712' }, 'background');
+  let segmentOffset = 0;
+  let tokenIndex = 0;
 
+  return paragraph.segments.map((segment, segmentIndex) => {
+    if (segment.type === 'text') {
+      const segmentTokens: ReaderToken[] = [];
+      while (tokenIndex < tokens.length && tokens[tokenIndex].start < segmentOffset + segment.text.length) {
+        segmentTokens.push(tokens[tokenIndex]);
+        tokenIndex += 1;
+      }
+      segmentOffset += segment.text.length;
+
+      return (
+        <Fragment key={`${paragraphIndex}-text-${segmentIndex}`}>
+          {segmentTokens.map((token) => renderSelectableToken({
+            paragraph,
+            paragraphIndex,
+            selectedParagraphIndex,
+            selection,
+            sentenceHighlightColor,
+            tokenHighlightColor,
+            token,
+            onTokenPress,
+          }))}
+        </Fragment>
+      );
+    }
+
+    const rubyToken = tokens[tokenIndex];
+    tokenIndex += 1;
+    segmentOffset += segment.base.length;
+
+    return (
+      <Text
+        key={`${paragraphIndex}-ruby-${segmentIndex}`}
+        onPress={() => onTokenPress(paragraphIndex, paragraph, rubyToken)}
+        style={getTokenHighlightStyle({
+          paragraphIndex,
+          selectedParagraphIndex,
+          selection,
+          sentenceHighlightColor,
+          tokenHighlightColor,
+          token: rubyToken,
+        })}>
+        <Text style={styles.rubyWrap}>
+          <Text style={[styles.rubyText, { color: rubyColor }]}>{segment.reading}</Text>
+          <Text style={styles.rubyBase}>{segment.base}</Text>
+        </Text>
+      </Text>
+    );
+  });
+}
+
+function renderSelectableToken({
+  paragraph,
+  paragraphIndex,
+  selectedParagraphIndex,
+  selection,
+  sentenceHighlightColor,
+  tokenHighlightColor,
+  token,
+  onTokenPress,
+}: {
+  paragraph: ReaderParagraph;
+  paragraphIndex: number;
+  selectedParagraphIndex: number;
+  selection: ReaderSelection | null;
+  sentenceHighlightColor: string;
+  tokenHighlightColor: string;
+  token: ReaderToken;
+  onTokenPress: (paragraphIndex: number, paragraph: ReaderParagraph, token: ReaderToken) => void;
+}) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={[
-        styles.button,
-        {
-          backgroundColor: disabled ? '#8B877D' : buttonColor,
-        },
-      ]}>
-      <ThemedText style={[styles.buttonLabel, { color: textColor }]}>{label}</ThemedText>
-    </Pressable>
+    <Text
+      key={`${paragraphIndex}-${token.start}-${token.end}-${token.value}`}
+      onPress={() => onTokenPress(paragraphIndex, paragraph, token)}
+      style={getTokenHighlightStyle({
+        paragraphIndex,
+        selectedParagraphIndex,
+        selection,
+        sentenceHighlightColor,
+        tokenHighlightColor,
+        token,
+      })}>
+      {token.value}
+    </Text>
   );
 }
 
-function MetricPill({ label, value }: { label: string; value: string }) {
-  const borderColor = useThemeColor({ light: '#C7B896', dark: '#42453B' }, 'icon');
+function getTokenHighlightStyle({
+  paragraphIndex,
+  selectedParagraphIndex,
+  selection,
+  sentenceHighlightColor,
+  tokenHighlightColor,
+  token,
+}: {
+  paragraphIndex: number;
+  selectedParagraphIndex: number;
+  selection: ReaderSelection | null;
+  sentenceHighlightColor: string;
+  tokenHighlightColor: string;
+  token: ReaderToken;
+}) {
+  const isTokenSelected =
+    paragraphIndex === selectedParagraphIndex &&
+    selection?.type === 'token' &&
+    selection.token.start === token.start &&
+    selection.token.end === token.end &&
+    selection.token.kind === token.kind &&
+    selection.token.value === token.value;
+  const isSentenceSelected =
+    paragraphIndex === selectedParagraphIndex &&
+    selection?.type === 'sentence' &&
+    token.start >= selection.start &&
+    token.end <= selection.end;
 
-  return (
-    <View
-      style={[
-        styles.metricPill,
-        {
-          borderColor,
-        },
-      ]}>
-      <ThemedText style={styles.metricLabel}>{label}</ThemedText>
-      <ThemedText style={styles.metricValue}>{value}</ThemedText>
-    </View>
-  );
+  return [
+    styles.inlineToken,
+    isSentenceSelected && {
+      backgroundColor: sentenceHighlightColor,
+    },
+    isTokenSelected && {
+      backgroundColor: tokenHighlightColor,
+    },
+  ];
+}
+
+function buildSentenceSelection(paragraph: string, token: ReaderToken): ReaderSelection {
+  const sentenceRange = findSentenceRange(paragraph, token.start, token.end);
+
+  return {
+    type: 'sentence',
+    text: paragraph.slice(sentenceRange.start, sentenceRange.end).trim(),
+    start: sentenceRange.start,
+    end: sentenceRange.end,
+  };
+}
+
+function findSentenceRange(text: string, tokenStart: number, tokenEnd: number) {
+  const delimiters = /[。！？!?]/u;
+  let start = tokenStart;
+  let end = tokenEnd;
+
+  while (start > 0) {
+    if (delimiters.test(text[start - 1])) {
+      break;
+    }
+    start -= 1;
+  }
+
+  while (end < text.length) {
+    if (delimiters.test(text[end])) {
+      end += 1;
+      break;
+    }
+    end += 1;
+  }
+
+  return { start, end };
 }
 
 const styles = StyleSheet.create({
@@ -258,141 +347,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 18,
-    paddingTop: 28,
-    paddingBottom: 44,
-    gap: 18,
-  },
-  heroCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 22,
-    gap: 14,
-  },
-  eyebrow: {
-    fontSize: 12,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  bookTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 34,
-    lineHeight: 40,
-  },
-  bookMeta: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  metricPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    minWidth: 96,
-  },
-  metricLabel: {
-    fontSize: 12,
-    lineHeight: 14,
-    opacity: 0.74,
-  },
-  metricValue: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '700',
-  },
-  chapterHeader: {
-    borderBottomWidth: 1,
-    gap: 14,
-    paddingBottom: 16,
-  },
-  chapterTitleWrap: {
-    gap: 6,
-  },
-  chapterTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 24,
-  },
-  chapterActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  button: {
-    borderRadius: 999,
-    minWidth: 108,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  buttonLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 36,
+    paddingBottom: 48,
   },
   readingPanel: {
-    gap: 12,
-  },
-  paragraphCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: 34,
   },
   paragraphText: {
     fontFamily: Fonts.serif,
-    fontSize: 18,
-    lineHeight: 32,
+    fontSize: 21,
+    lineHeight: 42,
+    letterSpacing: 0.2,
   },
-  analysisCard: {
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 20,
-    gap: 16,
+  inlineToken: {
+    borderRadius: 6,
   },
-  analysisTitle: {
-    fontFamily: Fonts.rounded,
+  rubyWrap: {
+    alignItems: 'center',
+    display: 'inline-flex',
+    flexDirection: 'column',
+    verticalAlign: 'top',
   },
-  analysisHint: {
-    fontSize: 14,
-    lineHeight: 21,
+  rubyText: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    lineHeight: 12,
   },
-  selectedParagraphPreview: {
-    gap: 8,
-  },
-  previewLabel: {
-    fontSize: 12,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  previewText: {
+  rubyBase: {
     fontFamily: Fonts.serif,
-    fontSize: 17,
-    lineHeight: 30,
-  },
-  tokenWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tokenDetailCard: {
-    borderRadius: 24,
-    padding: 18,
-    gap: 6,
-  },
-  tokenDetailEyebrow: {
-    fontSize: 12,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  tokenDetailValue: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-  },
-  tokenDetailMeta: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 21,
+    lineHeight: 28,
   },
 });
