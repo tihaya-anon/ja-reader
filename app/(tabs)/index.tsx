@@ -35,8 +35,14 @@ type ParagraphUnit =
 const DOUBLE_TAP_DELAY_MS = 240;
 
 export default function ReaderScreen() {
-  const { chapter, selectedParagraph, selectedParagraphIndex, selectedTokens, selectParagraph } =
-    useReaderState();
+  const {
+    chapter,
+    chapterTokens,
+    selectedParagraph,
+    selectedParagraphIndex,
+    selectedTokens,
+    selectParagraph,
+  } = useReaderState();
   const [selection, setSelection] = useState<ReaderSelection | null>(
     selectedTokens[0] ? { type: 'token', token: selectedTokens[0] } : null
   );
@@ -47,12 +53,12 @@ export default function ReaderScreen() {
 
   const paragraphUnits = useMemo(
     () =>
-      chapter.paragraphs.map((paragraph) => ({
+      chapter.paragraphs.map((paragraph, paragraphIndex) => ({
         paragraph,
-        tokens: tokenizeReaderParagraph(paragraph),
-        units: buildParagraphUnits(paragraph),
+        tokens: tokenizeReaderParagraph(paragraph, chapterTokens, paragraphIndex),
+        units: buildParagraphUnits(paragraph, chapterTokens, paragraphIndex),
       })),
-    [chapter.paragraphs]
+    [chapter.paragraphs, chapterTokens]
   );
 
   const textColor = useThemeColor({ light: '#16130F', dark: '#F9F4E8' }, 'text');
@@ -82,8 +88,8 @@ export default function ReaderScreen() {
           (token) =>
             token.start === currentSelection.token.start &&
             token.end === currentSelection.token.end &&
-            token.kind === currentSelection.token.kind &&
-            token.value === currentSelection.token.value
+            token.pos === currentSelection.token.pos &&
+            token.surface === currentSelection.token.surface
         );
 
         return nextToken
@@ -132,15 +138,12 @@ export default function ReaderScreen() {
       tokenStart: token.start,
       time: now,
     };
-    pendingTapRef.current = setTimeout(() => {
-      setSelection({ type: 'token', token });
-      pendingTapRef.current = null;
-    }, DOUBLE_TAP_DELAY_MS);
+    setSelection({ type: 'token', token });
   }
 
   return (
     <ThemedView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.readingPanel}>
           {paragraphUnits.map(({ paragraph, units }, index) => (
             <View key={`${chapter.id}-${index}`} style={styles.paragraphRow}>
@@ -155,7 +158,7 @@ export default function ReaderScreen() {
 
                 return (
                   <Pressable
-                    key={`${index}-${token.start}-${token.end}-${token.value}`}
+                    key={`${index}-${token.start}-${token.end}-${token.surface}`}
                     onPress={() => handleTokenPress(index, paragraph, token)}
                     style={[
                       styles.inlineUnit,
@@ -169,7 +172,7 @@ export default function ReaderScreen() {
                     {unit.type === 'ruby' ? (
                       <View style={styles.rubyUnit}>
                         <Text style={[styles.rubyText, { color: rubyColor }]}>{unit.reading}</Text>
-                        <Text style={[styles.baseText, { color: textColor }]}>{token.value}</Text>
+                        <Text style={[styles.baseText, { color: textColor }]}>{token.surface}</Text>
                       </View>
                     ) : (
                       <Text
@@ -180,7 +183,7 @@ export default function ReaderScreen() {
                             opacity: index === selectedParagraphIndex ? 1 : 0.92,
                           },
                         ]}>
-                        {token.value}
+                        {token.surface}
                       </Text>
                     )}
                   </Pressable>
@@ -194,19 +197,25 @@ export default function ReaderScreen() {
   );
 }
 
-function buildParagraphUnits(paragraph: ReaderParagraph): ParagraphUnit[] {
-  const tokens = tokenizeReaderParagraph(paragraph);
+function buildParagraphUnits(
+  paragraph: ReaderParagraph,
+  chapterTokens: ReaderToken[][],
+  paragraphIndex: number
+): ParagraphUnit[] {
+  const tokens = tokenizeReaderParagraph(paragraph, chapterTokens, paragraphIndex);
   const units: ParagraphUnit[] = [];
   let tokenIndex = 0;
   let segmentOffset = 0;
 
   for (const segment of paragraph.segments) {
     if (segment.type === 'text') {
-      while (tokenIndex < tokens.length && tokens[tokenIndex].start < segmentOffset + segment.text.length) {
+      const segmentEnd = segmentOffset + segment.text.length;
+
+      while (tokenIndex < tokens.length && tokens[tokenIndex].start < segmentEnd) {
         units.push({ type: 'token', token: tokens[tokenIndex] });
         tokenIndex += 1;
       }
-      segmentOffset += segment.text.length;
+      segmentOffset = segmentEnd;
       continue;
     }
 
@@ -241,8 +250,8 @@ function getTokenHighlightState({
     selection?.type === 'token' &&
     selection.token.start === token.start &&
     selection.token.end === token.end &&
-    selection.token.kind === token.kind &&
-    selection.token.value === token.value;
+    selection.token.pos === token.pos &&
+    selection.token.surface === token.surface;
   const sentenceSelected =
     paragraphIndex === selectedParagraphIndex &&
     selection?.type === 'sentence' &&
@@ -297,9 +306,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 36,
     paddingBottom: 48,
+    userSelect: 'none',
   },
   readingPanel: {
     gap: 34,
+    userSelect: 'none',
   },
   paragraphRow: {
     flexDirection: 'row',
@@ -311,6 +322,7 @@ const styles = StyleSheet.create({
   inlineUnit: {
     borderRadius: 6,
     justifyContent: 'flex-end',
+    userSelect: 'none',
   },
   baseText: {
     fontFamily: Fonts.serif,
@@ -319,14 +331,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   rubyUnit: {
-    minHeight: 46,
-    alignItems: 'center',
+    minHeight: 52,
+    alignItems: 'flex-start',
     justifyContent: 'flex-end',
+    paddingTop: 16,
+    position: 'relative',
   },
   rubyText: {
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 12,
-    marginBottom: 1,
+    fontSize: 11,
+    lineHeight: 13,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
 });

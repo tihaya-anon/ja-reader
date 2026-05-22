@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import { readerBook } from '@/data/book-data';
+import { readerBook, type ReaderToken } from '@/data/book-data';
+import { chapterTokenFiles } from '@/data/book-token-files';
 import { tokenizeReaderParagraph } from '@/features/reader/paragraph';
 
 export function useReaderState() {
@@ -8,11 +9,12 @@ export function useReaderState() {
   const [selectedParagraphIndex, setSelectedParagraphIndex] = useState(0);
 
   const chapter = readerBook.chapters[chapterIndex];
+  const chapterTokens = chapterTokenFiles[chapter.tokenFile] ?? [];
   const selectedParagraph =
     chapter.paragraphs[selectedParagraphIndex] ?? chapter.paragraphs[0] ?? { text: '', segments: [] };
   const selectedTokens = useMemo(
-    () => tokenizeReaderParagraph(selectedParagraph),
-    [selectedParagraph]
+    () => tokenizeReaderParagraph(selectedParagraph, chapterTokens, selectedParagraphIndex),
+    [chapterTokens, selectedParagraph, selectedParagraphIndex]
   );
 
   const readingProgress = Math.round(((chapterIndex + 1) / readerBook.chapterCount) * 100);
@@ -43,6 +45,7 @@ export function useReaderState() {
     book: readerBook,
     chapter,
     chapterIndex,
+    chapterTokens,
     paragraphProgress,
     readingProgress,
     selectedParagraph,

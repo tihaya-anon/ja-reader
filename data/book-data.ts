@@ -1,3 +1,19 @@
+export type ReaderToken = {
+  surface: string;
+  start: number;
+  end: number;
+  basicForm?: string;
+  reading?: string;
+  pronunciation?: string;
+  pos: string;
+  posDetail1?: string;
+  posDetail2?: string;
+  posDetail3?: string;
+  conjugatedType?: string;
+  conjugatedForm?: string;
+  wordType?: string;
+};
+
 export type ReaderInlineSegment =
   | { type: 'text'; text: string }
   | { type: 'ruby'; base: string; reading: string };
@@ -12,6 +28,7 @@ export type ReaderChapter = {
   title: string;
   paragraphs: ReaderParagraph[];
   wordCount: number;
+  tokenFile: string;
 };
 
 export type ReaderBook = {
@@ -433,7 +450,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 804
+      "wordCount": 804,
+      "tokenFile": "book-tokens/chapter-001.json"
     },
     {
       "id": "2-text-ep0002-xhtml",
@@ -1178,7 +1196,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1529
+      "wordCount": 1529,
+      "tokenFile": "book-tokens/chapter-002.json"
     },
     {
       "id": "3-text-ep0003-xhtml",
@@ -2334,7 +2353,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2034
+      "wordCount": 2034,
+      "tokenFile": "book-tokens/chapter-003.json"
     },
     {
       "id": "4-text-ep0004-xhtml",
@@ -2962,7 +2982,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1185
+      "wordCount": 1185,
+      "tokenFile": "book-tokens/chapter-004.json"
     },
     {
       "id": "5-text-ep0005-xhtml",
@@ -3653,7 +3674,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1230
+      "wordCount": 1230,
+      "tokenFile": "book-tokens/chapter-005.json"
     },
     {
       "id": "6-text-ep0006-xhtml",
@@ -4794,7 +4816,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1793
+      "wordCount": 1793,
+      "tokenFile": "book-tokens/chapter-006.json"
     },
     {
       "id": "7-text-ep0007-xhtml",
@@ -6354,7 +6377,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2124
+      "wordCount": 2124,
+      "tokenFile": "book-tokens/chapter-007.json"
     },
     {
       "id": "8-text-ep0008-xhtml",
@@ -7396,7 +7420,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2289
+      "wordCount": 2289,
+      "tokenFile": "book-tokens/chapter-008.json"
     },
     {
       "id": "9-text-ep0009-xhtml",
@@ -8600,7 +8625,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1825
+      "wordCount": 1825,
+      "tokenFile": "book-tokens/chapter-009.json"
     },
     {
       "id": "10-text-ep0010-xhtml",
@@ -9705,7 +9731,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1861
+      "wordCount": 1861,
+      "tokenFile": "book-tokens/chapter-010.json"
     },
     {
       "id": "11-text-ep0011-xhtml",
@@ -10666,7 +10693,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1416
+      "wordCount": 1416,
+      "tokenFile": "book-tokens/chapter-011.json"
     },
     {
       "id": "12-text-ep0012-xhtml",
@@ -11501,7 +11529,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1229
+      "wordCount": 1229,
+      "tokenFile": "book-tokens/chapter-012.json"
     },
     {
       "id": "13-text-ep0013-xhtml",
@@ -12408,7 +12437,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1156
+      "wordCount": 1156,
+      "tokenFile": "book-tokens/chapter-013.json"
     },
     {
       "id": "14-text-ep0014-xhtml",
@@ -13378,7 +13408,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1654
+      "wordCount": 1654,
+      "tokenFile": "book-tokens/chapter-014.json"
     },
     {
       "id": "15-text-ep0015-xhtml",
@@ -14402,7 +14433,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1894
+      "wordCount": 1894,
+      "tokenFile": "book-tokens/chapter-015.json"
     },
     {
       "id": "16-text-ep0016-xhtml",
@@ -15021,7 +15053,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1189
+      "wordCount": 1189,
+      "tokenFile": "book-tokens/chapter-016.json"
     },
     {
       "id": "17-text-ep0017-xhtml",
@@ -16036,7 +16069,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1600
+      "wordCount": 1600,
+      "tokenFile": "book-tokens/chapter-017.json"
     },
     {
       "id": "18-text-ep0018-xhtml",
@@ -17303,7 +17337,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1892
+      "wordCount": 1892,
+      "tokenFile": "book-tokens/chapter-018.json"
     },
     {
       "id": "19-text-ep0019-xhtml",
@@ -18705,7 +18740,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2192
+      "wordCount": 2192,
+      "tokenFile": "book-tokens/chapter-019.json"
     },
     {
       "id": "20-text-ep0020-xhtml",
@@ -19846,7 +19882,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1943
+      "wordCount": 1943,
+      "tokenFile": "book-tokens/chapter-020.json"
     },
     {
       "id": "21-text-ep0021-xhtml",
@@ -20897,7 +20934,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1779
+      "wordCount": 1779,
+      "tokenFile": "book-tokens/chapter-021.json"
     },
     {
       "id": "22-text-ep0022-xhtml",
@@ -21642,7 +21680,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1567
+      "wordCount": 1567,
+      "tokenFile": "book-tokens/chapter-022.json"
     },
     {
       "id": "23-text-ep0023-xhtml",
@@ -22819,7 +22858,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1869
+      "wordCount": 1869,
+      "tokenFile": "book-tokens/chapter-023.json"
     },
     {
       "id": "24-text-ep0024-xhtml",
@@ -23681,7 +23721,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1372
+      "wordCount": 1372,
+      "tokenFile": "book-tokens/chapter-024.json"
     },
     {
       "id": "25-text-ep0025-xhtml",
@@ -24642,7 +24683,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1878
+      "wordCount": 1878,
+      "tokenFile": "book-tokens/chapter-025.json"
     },
     {
       "id": "26-text-ep0026-xhtml",
@@ -26251,7 +26293,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2655
+      "wordCount": 2655,
+      "tokenFile": "book-tokens/chapter-026.json"
     },
     {
       "id": "27-text-ep0027-xhtml",
@@ -27797,7 +27840,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2305
+      "wordCount": 2305,
+      "tokenFile": "book-tokens/chapter-027.json"
     },
     {
       "id": "28-text-ep0028-xhtml",
@@ -28520,7 +28564,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1143
+      "wordCount": 1143,
+      "tokenFile": "book-tokens/chapter-028.json"
     },
     {
       "id": "29-text-ep0029-xhtml",
@@ -30039,7 +30084,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2463
+      "wordCount": 2463,
+      "tokenFile": "book-tokens/chapter-029.json"
     },
     {
       "id": "30-text-ep0030-xhtml",
@@ -31261,7 +31307,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2157
+      "wordCount": 2157,
+      "tokenFile": "book-tokens/chapter-030.json"
     },
     {
       "id": "31-text-ep0031-xhtml",
@@ -32753,7 +32800,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2250
+      "wordCount": 2250,
+      "tokenFile": "book-tokens/chapter-031.json"
     },
     {
       "id": "32-text-ep0032-xhtml",
@@ -34254,7 +34302,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2418
+      "wordCount": 2418,
+      "tokenFile": "book-tokens/chapter-032.json"
     },
     {
       "id": "33-text-ep0033-xhtml",
@@ -35377,7 +35426,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2153
+      "wordCount": 2153,
+      "tokenFile": "book-tokens/chapter-033.json"
     },
     {
       "id": "34-text-ep0034-xhtml",
@@ -36145,7 +36195,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1585
+      "wordCount": 1585,
+      "tokenFile": "book-tokens/chapter-034.json"
     },
     {
       "id": "35-text-ep0035-xhtml",
@@ -37286,7 +37337,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1960
+      "wordCount": 1960,
+      "tokenFile": "book-tokens/chapter-035.json"
     },
     {
       "id": "36-text-ep0036-xhtml",
@@ -38409,7 +38461,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1751
+      "wordCount": 1751,
+      "tokenFile": "book-tokens/chapter-036.json"
     },
     {
       "id": "37-text-ep0037-xhtml",
@@ -39226,7 +39279,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1726
+      "wordCount": 1726,
+      "tokenFile": "book-tokens/chapter-037.json"
     },
     {
       "id": "38-text-ep0038-xhtml",
@@ -40349,7 +40403,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2203
+      "wordCount": 2203,
+      "tokenFile": "book-tokens/chapter-038.json"
     },
     {
       "id": "39-text-ep0039-xhtml",
@@ -41337,7 +41392,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1622
+      "wordCount": 1622,
+      "tokenFile": "book-tokens/chapter-039.json"
     },
     {
       "id": "40-text-ep0040-xhtml",
@@ -42451,7 +42507,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1947
+      "wordCount": 1947,
+      "tokenFile": "book-tokens/chapter-040.json"
     },
     {
       "id": "41-text-ep0041-xhtml",
@@ -44033,7 +44090,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2418
+      "wordCount": 2418,
+      "tokenFile": "book-tokens/chapter-041.json"
     },
     {
       "id": "42-text-ep0042-xhtml",
@@ -45507,7 +45565,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2506
+      "wordCount": 2506,
+      "tokenFile": "book-tokens/chapter-042.json"
     },
     {
       "id": "43-text-ep0043-xhtml",
@@ -47071,7 +47130,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2368
+      "wordCount": 2368,
+      "tokenFile": "book-tokens/chapter-043.json"
     },
     {
       "id": "44-text-ep0044-xhtml",
@@ -48599,7 +48659,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2417
+      "wordCount": 2417,
+      "tokenFile": "book-tokens/chapter-044.json"
     },
     {
       "id": "45-text-ep0045-xhtml",
@@ -49767,7 +49828,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2401
+      "wordCount": 2401,
+      "tokenFile": "book-tokens/chapter-045.json"
     },
     {
       "id": "46-text-ep0046-xhtml",
@@ -50404,7 +50466,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1155
+      "wordCount": 1155,
+      "tokenFile": "book-tokens/chapter-046.json"
     },
     {
       "id": "47-text-ep0047-xhtml",
@@ -52148,7 +52211,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2987
+      "wordCount": 2987,
+      "tokenFile": "book-tokens/chapter-047.json"
     },
     {
       "id": "48-text-ep0048-xhtml",
@@ -53496,7 +53560,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2523
+      "wordCount": 2523,
+      "tokenFile": "book-tokens/chapter-048.json"
     },
     {
       "id": "49-text-ep0049-xhtml",
@@ -54502,7 +54567,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2112
+      "wordCount": 2112,
+      "tokenFile": "book-tokens/chapter-049.json"
     },
     {
       "id": "50-text-ep0050-xhtml",
@@ -55445,7 +55511,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1473
+      "wordCount": 1473,
+      "tokenFile": "book-tokens/chapter-050.json"
     },
     {
       "id": "51-text-ep0051-xhtml",
@@ -56290,7 +56357,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 1790
+      "wordCount": 1790,
+      "tokenFile": "book-tokens/chapter-051.json"
     },
     {
       "id": "52-text-ep0052-xhtml",
@@ -57692,7 +57760,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2688
+      "wordCount": 2688,
+      "tokenFile": "book-tokens/chapter-052.json"
     },
     {
       "id": "53-text-ep0053-xhtml",
@@ -59040,7 +59109,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2160
+      "wordCount": 2160,
+      "tokenFile": "book-tokens/chapter-053.json"
     },
     {
       "id": "54-text-ep0054-xhtml",
@@ -60343,7 +60413,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2279
+      "wordCount": 2279,
+      "tokenFile": "book-tokens/chapter-054.json"
     },
     {
       "id": "55-text-ep0055-xhtml",
@@ -61489,7 +61560,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2387
+      "wordCount": 2387,
+      "tokenFile": "book-tokens/chapter-055.json"
     },
     {
       "id": "56-text-ep0056-xhtml",
@@ -62738,7 +62810,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2313
+      "wordCount": 2313,
+      "tokenFile": "book-tokens/chapter-056.json"
     },
     {
       "id": "57-text-ep0057-xhtml",
@@ -63672,7 +63745,8 @@ export const readerBook: ReaderBook = {
           ]
         }
       ],
-      "wordCount": 2093
+      "wordCount": 2093,
+      "tokenFile": "book-tokens/chapter-057.json"
     }
   ]
 };

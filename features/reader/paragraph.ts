@@ -1,39 +1,66 @@
-import type { ReaderInlineSegment, ReaderParagraph } from '@/data/book-data';
-import { tokenizeJapanese, type ReaderToken, type TokenKind } from '@/features/reader/tokenize';
+import type { ReaderParagraph, ReaderToken } from '@/data/book-data';
 
-export function tokenizeReaderParagraph(paragraph: ReaderParagraph): ReaderToken[] {
-  const tokens: ReaderToken[] = [];
-  let offset = 0;
+export function tokenizeReaderParagraph(
+  paragraph: ReaderParagraph,
+  chapterTokens: ReaderToken[][],
+  paragraphIndex: number
+): ReaderToken[] {
+  const sourceTokens = chapterTokens[paragraphIndex] ?? [];
+  const displayTokens: ReaderToken[] = [];
+  let tokenIndex = 0;
+  let segmentOffset = 0;
 
   for (const segment of paragraph.segments) {
     if (segment.type === 'text') {
-      for (const token of tokenizeJapanese(segment.text)) {
-        tokens.push({
-          ...token,
-          start: token.start + offset,
-          end: token.end + offset,
-        });
+      while (
+        tokenIndex < sourceTokens.length &&
+        sourceTokens[tokenIndex].start < segmentOffset + segment.text.length
+      ) {
+        displayTokens.push(sourceTokens[tokenIndex]);
+        tokenIndex += 1;
       }
-      offset += segment.text.length;
+      segmentOffset += segment.text.length;
       continue;
     }
 
-    tokens.push(buildRubyToken(segment, offset));
-    offset += segment.base.length;
+    const segmentEnd = segmentOffset + segment.base.length;
+    const coveredTokens: ReaderToken[] = [];
+
+    while (tokenIndex < sourceTokens.length && sourceTokens[tokenIndex].start < segmentEnd) {
+      coveredTokens.push(sourceTokens[tokenIndex]);
+      tokenIndex += 1;
+    }
+
+    displayTokens.push(buildRubyDisplayToken(segment, coveredTokens, segmentOffset, segmentEnd));
+    segmentOffset = segmentEnd;
   }
 
-  return tokens;
+  return displayTokens;
 }
 
-function buildRubyToken(segment: Extract<ReaderInlineSegment, { type: 'ruby' }>, offset: number) {
-  const baseTokens = tokenizeJapanese(segment.base);
-  const kind: TokenKind = baseTokens[0]?.kind ?? 'kanji';
+function buildRubyDisplayToken(
+  segment: Extract<ReaderParagraph['segments'][number], { type: 'ruby' }>,
+  coveredTokens: ReaderToken[],
+  start: number,
+  end: number
+): ReaderToken {
+  const firstToken = coveredTokens[0];
 
   return {
-    value: segment.base,
-    kind,
-    start: offset,
-    end: offset + segment.base.length,
+    surface: segment.base,
+    start: firstToken?.start ?? start,
+    end: coveredTokens.at(-1)?.end ?? end,
+    basicForm:
+      coveredTokens.length === 1 ? coveredTokens[0].basicForm ?? segment.base : segment.base,
     reading: segment.reading,
-  } satisfies ReaderToken;
+    pronunciation:
+      coveredTokens.length === 1 ? coveredTokens[0].pronunciation ?? segment.reading : segment.reading,
+    pos: firstToken?.pos ?? '名詞',
+    posDetail1: firstToken?.posDetail1,
+    posDetail2: firstToken?.posDetail2,
+    posDetail3: firstToken?.posDetail3,
+    conjugatedType: coveredTokens.length === 1 ? firstToken?.conjugatedType : undefined,
+    conjugatedForm: coveredTokens.length === 1 ? firstToken?.conjugatedForm : undefined,
+    wordType: 'RUBY',
+  };
 }
