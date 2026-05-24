@@ -32,7 +32,7 @@ Current MVP scope:
    node scripts/build-epub-data.js
    ```
 
-   This generates local files inside `data/`, including lightweight chapter metadata and per-chapter token JSON.
+   This generates local files inside `data/`, including lightweight chapter metadata, per-chapter token JSON, and local dictionary lookup data when an `.mdx` file exists in `data/dict/`.
 
 4. Start Expo
 
@@ -75,6 +75,7 @@ VS Code / Cursor can open the repository with the config in [.devcontainer/devco
 - EPUB parser: [scripts/parse_epub.py](/workspace/scripts/parse_epub.py)
 - Generated chapter metadata: `data/book-data.ts`
 - Generated chapter token files: `data/book-tokens/*.json`
+- Generated dictionary lookup data: `data/dictionary-data.ts`
 
 ## Current Limitations
 

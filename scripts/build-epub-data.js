@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const kuromoji = require('kuromoji');
+const { spawnSync } = require('node:child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
 const dataDirectory = path.join(projectRoot, 'data');
@@ -24,6 +25,7 @@ async function main() {
   const { lightweightBook, tokenFiles } = writeTokenFiles(book, tokenizer);
   writeBookData(lightweightBook);
   writeTokenManifest(tokenFiles);
+  buildDictionaryData();
   console.log(`Wrote ${path.relative(projectRoot, outputPath)} and chapter token files from ${path.basename(epubPath)}`);
 }
 
@@ -34,7 +36,6 @@ function findFirstEpub(directoryPath) {
 }
 
 function parseEpubWithPython(epubPath) {
-  const { spawnSync } = require('node:child_process');
   const scriptPath = path.join(projectRoot, 'scripts', 'parse_epub.py');
   const result = spawnSync('python3', [scriptPath, epubPath], {
     cwd: projectRoot,
@@ -47,6 +48,23 @@ function parseEpubWithPython(epubPath) {
   }
 
   return JSON.parse(result.stdout);
+}
+
+function buildDictionaryData() {
+  const scriptPath = path.join(projectRoot, 'scripts', 'build-dictionary-data.js');
+  const result = spawnSync('node', [scriptPath], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 64,
+  });
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || 'Failed to build dictionary data');
+  }
+
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
+  }
 }
 
 function buildTokenizer() {
