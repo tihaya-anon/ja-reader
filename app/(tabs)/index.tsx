@@ -56,7 +56,6 @@ type ParagraphUnit = {
 };
 
 const DOUBLE_TAP_DELAY_MS = 380;
-const TOOL_BUTTON_SIZE = 56;
 
 export default function ReaderScreen() {
   const {
@@ -123,8 +122,6 @@ export default function ReaderScreen() {
   const sentenceHighlightColor = useThemeColor({ light: '#EFE2C8', dark: '#2B312A' }, 'background');
   const rubyBookColor = useThemeColor({ light: '#9B4D2F', dark: '#E3A66C' }, 'tint');
   const rubyDictionaryColor = useThemeColor({ light: '#466C9B', dark: '#7DB2E8' }, 'icon');
-  const fabBackground = useThemeColor({ light: '#171411', dark: '#EFE3CB' }, 'text');
-  const fabForeground = useThemeColor({ light: '#F9F0DE', dark: '#171411' }, 'background');
   const overlayColor = useThemeColor({ light: 'rgba(23, 18, 12, 0.18)', dark: 'rgba(8, 9, 8, 0.42)' }, 'background');
   const modalCardColor = useThemeColor({ light: '#FFF8EC', dark: '#1D211F' }, 'background');
   const modalTextColor = useThemeColor({ light: '#32281C', dark: '#F0E7D5' }, 'text');
@@ -318,6 +315,11 @@ export default function ReaderScreen() {
     ]
   );
 
+  function closeLookup() {
+    setSelection(null);
+    setIsLookupVisible(false);
+  }
+
   return (
     <ThemedView style={[styles.screen, { backgroundColor: pageBackground }]}> 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -436,31 +438,12 @@ export default function ReaderScreen() {
         </View>
       </ScrollView>
 
-      {showChrome ? (
-        <View pointerEvents="box-none" style={styles.fabStack}>
-          <Pressable
-            onPress={() => setIsLookupVisible((current) => !current)}
-            style={({ pressed }) => [
-              styles.fab,
-              {
-                backgroundColor: fabBackground,
-                width: TOOL_BUTTON_SIZE,
-                height: TOOL_BUTTON_SIZE,
-                opacity: pressed ? 0.86 : 1,
-                transform: [{ scale: pressed ? 0.96 : 1 }],
-              },
-            ]}>
-            <Text style={[styles.fabText, { color: fabForeground }]}>辞</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      <Modal animationType="fade" transparent visible={isLookupVisible} onRequestClose={() => setIsLookupVisible(false)}>
+      <Modal animationType="fade" transparent visible={isLookupVisible} onRequestClose={closeLookup}>
         <GestureHandlerRootView style={styles.modalRoot}>
           <View pointerEvents="box-none" style={styles.modalRoot}>
             <Pressable
               style={[styles.modalBackdrop, { backgroundColor: overlayColor }]}
-              onPress={() => setIsLookupVisible(false)}
+              onPress={closeLookup}
             />
             <Animated.View
               style={[
@@ -480,31 +463,17 @@ export default function ReaderScreen() {
                     {selection?.type === 'token' ? buildTokenMeta(selection.token) : 'Double tap to select a sentence'}
                   </ThemedText>
                 </View>
-                <View style={styles.modalActions}>
-                  <GestureDetector gesture={dragGesture}>
-                    <Animated.View
-                      style={[
-                        styles.modalHandle,
-                        dragHandleAnimatedStyle,
-                        { backgroundColor: panelColor, borderColor: panelBorder },
-                      ]}>
-                      <View style={[styles.modalHandleBar, { backgroundColor: chromeText }]} />
-                      <View style={[styles.modalHandleBar, { backgroundColor: chromeText }]} />
-                    </Animated.View>
-                  </GestureDetector>
-                  <Pressable
-                    onPress={() => setIsLookupVisible(false)}
-                    style={({ pressed }) => [
-                      styles.closeButton,
-                      {
-                        borderColor: panelBorder,
-                        opacity: pressed ? 0.82 : 1,
-                        transform: [{ scale: pressed ? 0.94 : 1 }],
-                      },
+                <GestureDetector gesture={dragGesture}>
+                  <Animated.View
+                    style={[
+                      styles.modalHandle,
+                      dragHandleAnimatedStyle,
+                      { backgroundColor: panelColor, borderColor: panelBorder },
                     ]}>
-                    <Text style={[styles.closeButtonText, { color: chromeText }]}>×</Text>
-                  </Pressable>
-                </View>
+                    <View style={[styles.modalHandleBar, { backgroundColor: chromeText }]} />
+                    <View style={[styles.modalHandleBar, { backgroundColor: chromeText }]} />
+                  </Animated.View>
+                </GestureDetector>
               </View>
               <ScrollView contentContainerStyle={styles.modalBody}>
                 {selection?.type === 'sentence' ? (
@@ -1015,23 +984,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 38,
   },
-  fabStack: {
-    position: 'absolute',
-    right: 18,
-    bottom: 24,
-    alignItems: 'center',
-  },
-  fab: {
-    alignItems: 'center',
-    boxShadow: '0px 10px 18px rgba(0, 0, 0, 0.14)',
-    borderRadius: 999,
-    justifyContent: 'center',
-  },
-  fabText: {
-    fontFamily: Fonts.rounded,
-    fontSize: 24,
-    lineHeight: 26,
-  },
   modalRoot: {
     flex: 1,
   },
@@ -1067,10 +1019,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  modalActions: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
   modalHandle: {
     alignItems: 'center',
     borderRadius: 16,
@@ -1087,18 +1035,6 @@ const styles = StyleSheet.create({
     height: 3,
     width: 18,
     opacity: 0.65,
-  },
-  closeButton: {
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  closeButtonText: {
-    fontSize: 18,
-    lineHeight: 20,
   },
   modalBody: {
     gap: 14,
