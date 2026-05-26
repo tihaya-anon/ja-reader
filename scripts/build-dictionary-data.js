@@ -147,15 +147,40 @@ function normalizeEntry(dict, result) {
     return null;
   }
 
+  const key = String(resolved.keyText).trim();
   const definition = sanitizeDefinitionHtml(String(resolved.definition));
   if (!definition) {
     return null;
   }
 
   return {
-    key: String(resolved.keyText).trim(),
+    key,
+    reading: extractReading(key, definition),
     definition,
   };
+}
+
+function extractReading(key, definition) {
+  const keyReading = key.match(/[（(]([\p{Script=Hiragana}\p{Script=Katakana}ー・]+)[)）]/u);
+  if (keyReading) {
+    return keyReading[1];
+  }
+
+  const headword = definition.match(
+    /<b>\s*([\p{Script=Hiragana}\p{Script=Katakana}ー・]+)\s*<\/b>/u
+  );
+  if (headword) {
+    return headword[1];
+  }
+
+  const inline = definition.match(
+    /【[^】]+】(?:<[^>]+>|\s)*([\p{Script=Hiragana}\p{Script=Katakana}ー・]+)(?:\s|<|\[)/u
+  );
+  if (inline) {
+    return inline[1];
+  }
+
+  return undefined;
 }
 
 function resolveLinkedDefinition(dict, result) {
@@ -221,6 +246,7 @@ function writeDictionaryData(payload) {
   const fileContents = [
     'export type ReaderDictionaryEntry = {',
     '  key: string;',
+    '  reading?: string;',
     '  definition: string;',
     '};',
     '',

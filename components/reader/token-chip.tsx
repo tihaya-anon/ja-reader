@@ -43,7 +43,7 @@ export function TokenChip({ isSelected, onPress, token }: TokenChipProps) {
             color: isSelected ? selectedTextColor : textColor,
           },
         ]}>
-        {token.value}
+        {token.surface}
       </ThemedText>
     </Pressable>
   );

@@ -42,11 +42,11 @@ app-example
 /ios
 /android
 
-# generated files
-CHANGELOG.md
-
 # large data files
 data/book-tokens
 data/book-data.ts
 data/book-token-files.ts
 data/dictionary-data.ts
+data/働く私と彼女の同棲.epub
+data/dict/23【JP】三省堂超级大辞林第二版.mdx
+.git/

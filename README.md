@@ -6,9 +6,11 @@ Current MVP scope:
 
 - Load an EPUB from local `data/`
 - Preprocess EPUB chapters into app-readable data
-- Show chapter-based reading UI
-- Track in-memory reading progress
-- Support inline token selection and ruby display
+- Show a chapter-based reading UI with chapter header and progress bars
+- Support inline token selection, sentence selection, and ruby display
+- Fill missing ruby from local dictionary readings when available
+- Show local dictionary definitions in a draggable, resizable modal
+- Persist reader UI settings for the lookup modal
 - Tokenize with `kuromoji` for lookup-oriented reading data
 
 ## Run
@@ -26,7 +28,14 @@ Current MVP scope:
    - `data/` is intentionally ignored by git and is treated as local reading content
    - source books and generated token data are not committed to the repository
 
-3. Rebuild local reader data
+3. Optionally add an `.mdx` dictionary to `./data/dict`
+
+   Notes:
+
+   - the build currently reads the first `.mdx` file it finds in `data/dict/`
+   - dictionary definitions and ruby fallback data are generated locally and are not committed
+
+4. Rebuild local reader data
 
    ```bash
    node scripts/build-epub-data.js
@@ -34,11 +43,21 @@ Current MVP scope:
 
    This generates local files inside `data/`, including lightweight chapter metadata, per-chapter token JSON, and local dictionary lookup data when an `.mdx` file exists in `data/dict/`.
 
-4. Start Expo
+5. Start Expo
 
    ```bash
    npm run start
    ```
+
+## Current Reader Behavior
+
+- Single tap selects a token and opens dictionary lookup in a floating modal
+- Double tap selects the surrounding sentence
+- EPUB-provided ruby is preserved and rendered inline
+- If a token contains kanji and the book did not provide ruby, the app tries to derive ruby from local dictionary entries
+- EPUB ruby and dictionary-derived ruby use different colors in the reading view
+- The lookup modal can be moved from the top-right handle and resized from the bottom-right handle
+- Lookup modal position and size persist locally with AsyncStorage
 
 ## Docker Dev Environment
 
@@ -71,6 +90,7 @@ VS Code / Cursor can open the repository with the config in [.devcontainer/devco
 ## Data Flow
 
 - Local source EPUB: `data/*.epub`
+- Optional local dictionary: `data/dict/*.mdx`
 - Preprocess script: [scripts/build-epub-data.js](/workspace/scripts/build-epub-data.js)
 - EPUB parser: [scripts/parse_epub.py](/workspace/scripts/parse_epub.py)
 - Generated chapter metadata: `data/book-data.ts`
@@ -80,8 +100,8 @@ VS Code / Cursor can open the repository with the config in [.devcontainer/devco
 ## Current Limitations
 
 - `data/` must be generated locally and is not distributed with the repo
-- `kuromoji` is used for lightweight reading-oriented tokenization, not full dictionary lookup on its own
-- Ruby rendering prefers EPUB-provided ruby; tokenizer readings are supporting metadata
-- Reading progress is not persisted yet
+- the dictionary build currently supports one local `.mdx` source at a time
+- dictionary reading extraction is heuristic and may vary by MDX format
+- reading progress is still not persisted yet; only lookup modal UI settings are persisted
 - EPUB import is preprocessed at build time, not yet handled live inside the app
-- Notes, bookmarks, AI context, and dictionaries are not implemented yet
+- notes, bookmarks, AI context, and multi-dictionary management are not implemented yet

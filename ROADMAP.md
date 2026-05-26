@@ -4,27 +4,30 @@
 
 - Support importing and opening EPUB files.
 - Build a clean reading view with pagination or smooth chapter navigation.
-  Status: in progress. Current UI is a minimal flowing-text reader with chapter-backed content, but not a finished pagination or chapter navigation experience.
+  Status: in progress. The app now has a more reader-like chapter surface with chapter header, progress bars, chapter navigation, paragraph markers, and floating controls, but it is still a flowing-text reader rather than a finished pagination system.
 - Preserve reading progress, current chapter, and last position.
-  Status: partially complete. Current chapter and paragraph position exist in memory only.
+  Status: partially complete. Chapter and paragraph selection still live in memory only, but reader UI preferences for the lookup modal are now persisted locally.
 - Add basic text selection, tap interaction, and responsive mobile layout.
-  Status: complete for the current MVP. Single tap selects a word-like token, double tap selects a sentence, and the reading surface has been simplified into a reader-style text flow.
+  Status: complete for the current MVP. Single tap selects a token, double tap selects a sentence, and lookup now stays in a movable modal instead of pushing content downward.
 
 ## Phase 2: Japanese Text Processing
 
 - Add Japanese tokenization / word segmentation for the current sentence or paragraph.
   Status: complete for the current heuristic tokenizer. The app tokenizes paragraph text and maps taps back to token offsets.
 - Support tapping a word to view base form, reading, and simple grammar-related metadata.
-  Status: partially complete. Tap selection works and ruby readings from the EPUB are preserved and rendered, but dictionary-backed metadata and grammar detail are not implemented.
+  Status: in progress. Tap selection works, EPUB ruby is preserved, dictionary entries are shown in-modal, and missing ruby can now be backfilled from dictionary readings, but grammar detail is still shallow.
 - Make tokenization fast enough to run during reading without breaking flow.
 - Prepare a text-processing pipeline that can later support better analyzers or offline parsing.
-  Status: in progress. EPUB preprocessing now preserves inline ruby/furigana segments and generates richer paragraph data for the app.
+  Status: in progress. EPUB preprocessing preserves inline ruby/furigana segments and dictionary generation now also extracts optional reading metadata for fallback ruby.
 
 ## Phase 3: Dictionary System
 
 - Support importing external dictionaries such as MDX and MDD.
+  Status: partially complete. Local MDX import exists for one dictionary source at build time.
 - Build a unified dictionary lookup layer so built-in and imported dictionaries use the same UI.
+  Status: in progress. Token lookup and dictionary-backed ruby fallback now share the same local dictionary data layer.
 - Show word definitions in a popup / side panel while staying on the current page.
+  Status: partially complete. Definitions now appear in a draggable and resizable modal that stays over the current reading view.
 - Support multiple dictionaries, priority order, and optional cross-dictionary search.
 
 ## Phase 4: Notes and Bookmarks
