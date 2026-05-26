@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -83,6 +84,10 @@ export default function ReaderScreen() {
     { paragraphIndex: number; tokenStart: number; tokenEnd: number; time: number } | null
   >(null);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const modalX = useSharedValue(modalSettings.x);
+  const modalY = useSharedValue(modalSettings.y);
+  const modalWidth = useSharedValue(modalSettings.width);
+  const modalHeight = useSharedValue(modalSettings.height);
   const dragStartX = useSharedValue(0);
   const dragStartY = useSharedValue(0);
   const resizeStartWidth = useSharedValue(0);
@@ -186,15 +191,28 @@ export default function ReaderScreen() {
     }
   }, [clampedModalSettings, modalSettings, setModalSettings]);
 
-  const modalAnimatedStyle = useAnimatedStyle(
-    () => ({
-      left: clampedModalSettings.x,
-      top: clampedModalSettings.y,
-      width: clampedModalSettings.width,
-      height: clampedModalSettings.height,
-    }),
-    [clampedModalSettings]
-  );
+  useEffect(() => {
+    modalX.value = clampedModalSettings.x;
+    modalY.value = clampedModalSettings.y;
+    modalWidth.value = clampedModalSettings.width;
+    modalHeight.value = clampedModalSettings.height;
+  }, [
+    clampedModalSettings.height,
+    clampedModalSettings.width,
+    clampedModalSettings.x,
+    clampedModalSettings.y,
+    modalHeight,
+    modalWidth,
+    modalX,
+    modalY,
+  ]);
+
+  const modalAnimatedStyle = useAnimatedStyle(() => ({
+    left: modalX.value,
+    top: modalY.value,
+    width: modalWidth.value,
+    height: modalHeight.value,
+  }));
 
   const dragHandleAnimatedStyle = useAnimatedStyle(() => ({
     opacity: withTiming(dragHandleActive.value ? 0.82 : 1, { duration: 120 }),
@@ -210,28 +228,44 @@ export default function ReaderScreen() {
     () =>
       Gesture.Pan()
         .minDistance(0)
-        .runOnJS(true)
         .onBegin(() => {
           dragHandleActive.value = 1;
-          dragStartX.value = clampedModalSettings.x;
-          dragStartY.value = clampedModalSettings.y;
+          dragStartX.value = modalX.value;
+          dragStartY.value = modalY.value;
         })
         .onUpdate((event) => {
-          setModalSettings({
-            x: dragStartX.value + event.translationX,
-            y: dragStartY.value + event.translationY,
-          });
+          const nextSettings = clampModalSettings(
+            {
+              x: dragStartX.value + event.translationX,
+              y: dragStartY.value + event.translationY,
+              width: modalWidth.value,
+              height: modalHeight.value,
+            },
+            viewportWidth,
+            viewportHeight
+          );
+
+          modalX.value = nextSettings.x;
+          modalY.value = nextSettings.y;
         })
         .onFinalize(() => {
           dragHandleActive.value = 0;
+          runOnJS(setModalSettings)({
+            x: modalX.value,
+            y: modalY.value,
+          });
         }),
     [
-      clampedModalSettings.x,
-      clampedModalSettings.y,
       dragHandleActive,
       dragStartX,
       dragStartY,
+      modalHeight,
+      modalWidth,
+      modalX,
+      modalY,
       setModalSettings,
+      viewportHeight,
+      viewportWidth,
     ]
   );
 
@@ -239,28 +273,48 @@ export default function ReaderScreen() {
     () =>
       Gesture.Pan()
         .minDistance(0)
-        .runOnJS(true)
         .onBegin(() => {
           resizeHandleActive.value = 1;
-          resizeStartWidth.value = clampedModalSettings.width;
-          resizeStartHeight.value = clampedModalSettings.height;
+          resizeStartWidth.value = modalWidth.value;
+          resizeStartHeight.value = modalHeight.value;
         })
         .onUpdate((event) => {
-          setModalSettings({
-            width: resizeStartWidth.value + event.translationX,
-            height: resizeStartHeight.value + event.translationY,
-          });
+          const nextSettings = clampModalSettings(
+            {
+              x: modalX.value,
+              y: modalY.value,
+              width: resizeStartWidth.value + event.translationX,
+              height: resizeStartHeight.value + event.translationY,
+            },
+            viewportWidth,
+            viewportHeight
+          );
+
+          modalX.value = nextSettings.x;
+          modalY.value = nextSettings.y;
+          modalWidth.value = nextSettings.width;
+          modalHeight.value = nextSettings.height;
         })
         .onFinalize(() => {
           resizeHandleActive.value = 0;
+          runOnJS(setModalSettings)({
+            x: modalX.value,
+            y: modalY.value,
+            width: modalWidth.value,
+            height: modalHeight.value,
+          });
         }),
     [
-      clampedModalSettings.height,
-      clampedModalSettings.width,
+      modalHeight,
+      modalWidth,
+      modalX,
+      modalY,
       resizeHandleActive,
       resizeStartHeight,
       resizeStartWidth,
       setModalSettings,
+      viewportHeight,
+      viewportWidth,
     ]
   );
 
@@ -808,6 +862,8 @@ function clampModalSettings(
   viewportWidth: number,
   viewportHeight: number
 ) {
+  'worklet';
+
   const width = Math.min(Math.max(settings.width, 240), Math.max(240, viewportWidth - 24));
   const height = Math.min(Math.max(settings.height, 180), Math.max(180, viewportHeight - 80));
 

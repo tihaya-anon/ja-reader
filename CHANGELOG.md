@@ -5,14 +5,12 @@
 - Add inline ruby rendering to reader
 - Add kuromoji-based reader tokenization
 - Add local dictionary lookup pipeline
-- *(reader)* Add dictionary ruby and floating lookup modal
-- *(reader)* Improve ruby lookup and refresh dictionary data
+- *(reader)* Add lookup improvements and remove large tracked data files
 
 ### 📚 Documentation
 
 - Update roadmap and refine ruby layout
 - Clarify local reader data workflow
-- *(changelog)* Update unreleased entries
 
 ### ⚙️ Miscellaneous Tasks
 

@@ -90,6 +90,7 @@ VS Code / Cursor can open the repository with the config in [.devcontainer/devco
 ## Data Flow
 
 - Local source EPUB: `data/*.epub`
+- Preferred development sample: `data/dev-sample-ja.epub` when present
 - Optional local dictionary: `data/dict/*.mdx`
 - Preprocess script: [scripts/build-epub-data.js](/workspace/scripts/build-epub-data.js)
 - EPUB parser: [scripts/parse_epub.py](/workspace/scripts/parse_epub.py)

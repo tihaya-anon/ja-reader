@@ -9,9 +9,10 @@ const outputPath = path.join(projectRoot, 'data', 'book-data.ts');
 const tokenManifestPath = path.join(projectRoot, 'data', 'book-token-files.ts');
 const tokensDirectory = path.join(projectRoot, 'data', 'book-tokens');
 const dictionaryPath = path.join(path.dirname(require.resolve('kuromoji')), '../dict');
+const preferredDevSampleName = 'dev-sample-ja.epub';
 
 async function main() {
-  const epubPath = findFirstEpub(dataDirectory);
+  const epubPath = findPreferredEpub(dataDirectory);
 
   if (!epubPath) {
     throw new Error(`No EPUB file found in ${dataDirectory}`);
@@ -29,9 +30,13 @@ async function main() {
   console.log(`Wrote ${path.relative(projectRoot, outputPath)} and chapter token files from ${path.basename(epubPath)}`);
 }
 
-function findFirstEpub(directoryPath) {
+function findPreferredEpub(directoryPath) {
   const entries = fs.readdirSync(directoryPath, { withFileTypes: true });
-  const fileEntry = entries.find((entry) => entry.isFile() && entry.name.endsWith('.epub'));
+  const epubFiles = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.epub'));
+  const preferredEntry =
+    epubFiles.find((entry) => entry.name === preferredDevSampleName) ??
+    epubFiles.find((entry) => entry.name !== `${preferredDevSampleName}.placeholder`);
+  const fileEntry = preferredEntry ?? null;
   return fileEntry ? path.join(directoryPath, fileEntry.name) : null;
 }
 
