@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +25,7 @@ import { scheduleOnRN } from "react-native-worklets";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Fonts } from "@/constants/theme";
 import type { ReaderParagraph } from "@/data/book-data";
 import {
@@ -96,12 +99,20 @@ export default function ReaderScreen() {
     getBookmark,
     getNotesForParagraph,
     getNotesForSelection,
+    removeNote,
     removeBookmark,
+    updateNote,
   } = useReaderAnnotations();
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
   const [isLookupVisible, setIsLookupVisible] = useState(false);
   const [isNoteComposerVisible, setIsNoteComposerVisible] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [noteSelectionSnapshot, setNoteSelectionSnapshot] =
+    useState<ReaderSelectionSnapshot | null>(null);
+  const [noteDictionarySnapshot, setNoteDictionarySnapshot] = useState(
+    [] as typeof dictionaryEntries,
+  );
   const pendingTapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{
     paragraphIndex: number;
@@ -135,6 +146,7 @@ export default function ReaderScreen() {
     () => getNotesForSelection(selectionSnapshot),
     [getNotesForSelection, selectionSnapshot],
   );
+  const activeSelectionNote = selectionNotes[0] ?? null;
 
   const chapterRubyMap = useMemo(
     () => buildChapterRubyMap(chapter.paragraphs),
@@ -263,6 +275,15 @@ export default function ReaderScreen() {
   const paragraphNotes = useMemo(
     () => getNotesForParagraph(chapterIndex, selectedParagraphIndex),
     [chapterIndex, getNotesForParagraph, selectedParagraphIndex],
+  );
+  const noteAnnotatedRanges = useMemo(
+    () =>
+      paragraphNotes.map((note) => ({
+        type: note.selection.type,
+        start: note.selection.start,
+        end: note.selection.end,
+      })),
+    [paragraphNotes],
   );
 
   const clampedModalSettings = useMemo(
@@ -482,6 +503,14 @@ export default function ReaderScreen() {
     setIsLookupVisible(false);
   }
 
+  function closeNoteComposer() {
+    setIsNoteComposerVisible(false);
+    setNoteDraft("");
+    setEditingNoteId(null);
+    setNoteSelectionSnapshot(null);
+    setNoteDictionarySnapshot([]);
+  }
+
   function toggleBookmark() {
     if (currentBookmark) {
       removeBookmark(currentBookmark.id);
@@ -497,12 +526,51 @@ export default function ReaderScreen() {
   }
 
   function openNoteComposer() {
+    if (!selectionSnapshot) {
+      return;
+    }
+
+    if (activeSelectionNote) {
+      openNoteEditor(activeSelectionNote.id);
+      return;
+    }
+
     setNoteDraft("");
+    setEditingNoteId(null);
+    setNoteSelectionSnapshot(selectionSnapshot);
+    setNoteDictionarySnapshot(dictionaryEntries);
+    setIsLookupVisible(false);
+    setIsNoteComposerVisible(true);
+  }
+
+  function openNoteEditor(noteId: string) {
+    const note = selectionNotes.find((entry) => entry.id === noteId);
+    if (!note) {
+      return;
+    }
+
+    setEditingNoteId(note.id);
+    setNoteDraft(note.body);
+    setNoteSelectionSnapshot(note.selection);
+    setNoteDictionarySnapshot(
+      note.dictionarySnapshot.map((entry) => ({
+        key: entry.key,
+        reading: entry.reading,
+        definition: entry.definition,
+      })),
+    );
+    setIsLookupVisible(false);
     setIsNoteComposerVisible(true);
   }
 
   function saveNote() {
-    if (!selectionSnapshot || !noteDraft.trim()) {
+    if (!noteSelectionSnapshot || !noteDraft.trim()) {
+      return;
+    }
+
+    if (editingNoteId) {
+      updateNote(editingNoteId, noteDraft);
+      closeNoteComposer();
       return;
     }
 
@@ -511,12 +579,22 @@ export default function ReaderScreen() {
       chapterTitle: chapter.title,
       paragraphIndex: selectedParagraphIndex,
       paragraphText: currentParagraphText,
-      selection: selectionSnapshot,
+      selection: noteSelectionSnapshot,
       body: noteDraft,
-      dictionaryEntries,
+      dictionaryEntries: noteDictionarySnapshot,
     });
-    setNoteDraft("");
-    setIsNoteComposerVisible(false);
+    closeNoteComposer();
+    setSelection(null);
+  }
+
+  function deleteEditingNote() {
+    if (!editingNoteId) {
+      return;
+    }
+
+    removeNote(editingNoteId);
+    closeNoteComposer();
+    setSelection(null);
   }
 
   return (
@@ -605,6 +683,9 @@ export default function ReaderScreen() {
                       selection,
                       token,
                     });
+                    const noteMarkers =
+                      index === selectedParagraphIndex &&
+                      getTokenNoteMarkers(token, noteAnnotatedRanges);
                     const rubyColor =
                       unit.rubySource === "dictionary"
                         ? rubyDictionaryColor
@@ -627,42 +708,60 @@ export default function ReaderScreen() {
                           },
                         ]}
                       >
-                        {unit.rubyText ? (
-                          <View style={styles.rubyUnit}>
-                            <Text
+                        <View style={styles.inlineUnitContent}>
+                          {unit.rubyText ? (
+                            <View style={styles.rubyUnit}>
+                              <Text
+                                style={[
+                                  styles.rubyText,
+                                  rubyTextStyle,
+                                  { color: rubyColor },
+                                ]}
+                              >
+                                {unit.rubyText}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.baseText,
+                                  baseTextStyle,
+                                  { color: textColor },
+                                ]}
+                              >
+                                {token.surface}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View style={styles.baseTokenWrap}>
+                              <Text
+                                style={[
+                                  styles.baseText,
+                                  baseTextStyle,
+                                  {
+                                    color: textColor,
+                                    opacity:
+                                      index === selectedParagraphIndex ? 1 : 0.92,
+                                  },
+                                ]}
+                              >
+                                {token.surface}
+                              </Text>
+                            </View>
+                          )}
+                          {noteMarkers?.hasSentenceNote ? (
+                            <View
                               style={[
-                                styles.rubyText,
-                                rubyTextStyle,
-                                { color: rubyColor },
+                                styles.sentenceNoteUnderline,
+                                noteMarkers.isSentenceStart &&
+                                  styles.sentenceNoteUnderlineStart,
+                                noteMarkers.isSentenceEnd &&
+                                  styles.sentenceNoteUnderlineEnd,
                               ]}
-                            >
-                              {unit.rubyText}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.baseText,
-                                baseTextStyle,
-                                { color: textColor },
-                              ]}
-                            >
-                              {token.surface}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Text
-                            style={[
-                              styles.baseText,
-                              baseTextStyle,
-                              {
-                                color: textColor,
-                                opacity:
-                                  index === selectedParagraphIndex ? 1 : 0.92,
-                              },
-                            ]}
-                          >
-                            {token.surface}
-                          </Text>
-                        )}
+                            />
+                          ) : null}
+                          {noteMarkers?.hasTokenNote ? (
+                            <View style={styles.tokenNoteUnderline} />
+                          ) : null}
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -686,7 +785,7 @@ export default function ReaderScreen() {
           />
           <View
             style={[
-              styles.settingsSheet,
+              styles.noteComposerSheet,
               {
                 backgroundColor: panelColor,
                 borderColor: panelBorder,
@@ -895,58 +994,42 @@ export default function ReaderScreen() {
                       : "Double-tap to select a sentence"}
                   </ThemedText>
                 </View>
-                <GestureDetector gesture={dragGesture}>
-                  <Animated.View
-                    style={[
-                      styles.modalHandle,
-                      dragHandleAnimatedStyle,
-                      undefined,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.modalHandleBar,
-                        { backgroundColor: chromeText },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.modalHandleBar,
-                        { backgroundColor: chromeText },
-                      ]}
-                    />
-                  </Animated.View>
-                </GestureDetector>
-              </View>
-              <ScrollView contentContainerStyle={styles.modalBody}>
-                <View style={styles.lookupActions}>
-                  <Pressable
-                    onPress={toggleBookmark}
-                    style={[
-                      styles.lookupActionButton,
-                      {
-                        borderColor: panelBorder,
-                        backgroundColor: currentBookmark ? accentSoft : "transparent",
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.lookupActionText, { color: modalTextColor }]}>
-                      {currentBookmark ? "Remove bookmark" : "Add bookmark"}
-                    </Text>
-                  </Pressable>
+                <View style={styles.modalHeaderActions}>
                   <Pressable
                     onPress={openNoteComposer}
-                    style={[
-                      styles.lookupActionButton,
-                      { borderColor: panelBorder, backgroundColor: "transparent" },
-                    ]}
+                    style={[styles.modalIconButton, { borderColor: panelBorder }]}
                   >
-                    <Text style={[styles.lookupActionText, { color: modalTextColor }]}>
-                      Add note
-                    </Text>
+                    <IconSymbol
+                      name="square.and.pencil"
+                      size={18}
+                      color={modalTextColor}
+                    />
                   </Pressable>
+                  <GestureDetector gesture={dragGesture}>
+                    <Animated.View
+                      style={[
+                        styles.modalHandle,
+                        dragHandleAnimatedStyle,
+                        undefined,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.modalHandleBar,
+                          { backgroundColor: chromeText },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.modalHandleBar,
+                          { backgroundColor: chromeText },
+                        ]}
+                      />
+                    </Animated.View>
+                  </GestureDetector>
                 </View>
-
+              </View>
+              <ScrollView contentContainerStyle={styles.modalBody}>
                 {selection?.type === "sentence" ? (
                   <ThemedText
                     style={[styles.sentenceText, { color: modalTextColor }]}
@@ -1014,30 +1097,28 @@ export default function ReaderScreen() {
                   </ThemedText>
                 )}
 
-                {selectionNotes.length > 0 ? (
+                {activeSelectionNote ? (
                   <View style={styles.notesSection}>
                     <ThemedText style={[styles.notesSectionTitle, { color: modalTextColor }]}>
-                      Notes
+                      Note
                     </ThemedText>
-                    {selectionNotes.map((note) => (
-                      <View
-                        key={note.id}
-                        style={[
-                          styles.noteCard,
-                          { borderColor: panelBorder, backgroundColor: panelColor },
-                        ]}
-                      >
-                        <ThemedText style={[styles.noteTitle, { color: modalTextColor }]}>
-                          {note.title}
-                        </ThemedText>
-                        <ThemedText style={[styles.noteBody, { color: modalTextColor }]}>
-                          {note.body}
-                        </ThemedText>
-                        <ThemedText style={[styles.noteMeta, { color: chromeText }]}>
-                          AI ready · {note.aiContext.tags.join(" · ")}
-                        </ThemedText>
-                      </View>
-                    ))}
+                    <Pressable
+                      onPress={() => openNoteEditor(activeSelectionNote.id)}
+                      style={[
+                        styles.noteCard,
+                        { borderColor: panelBorder, backgroundColor: panelColor },
+                      ]}
+                    >
+                      <ThemedText style={[styles.noteTitle, { color: modalTextColor }]}>
+                        {activeSelectionNote.title}
+                      </ThemedText>
+                      <ThemedText style={[styles.noteBody, { color: modalTextColor }]}>
+                        {activeSelectionNote.body}
+                      </ThemedText>
+                      <ThemedText style={[styles.noteMeta, { color: chromeText }]}>
+                        AI ready · {activeSelectionNote.aiContext.tags.join(" · ")}
+                      </ThemedText>
+                    </Pressable>
                   </View>
                 ) : null}
               </ScrollView>
@@ -1070,12 +1151,16 @@ export default function ReaderScreen() {
         animationType="slide"
         transparent
         visible={isNoteComposerVisible}
-        onRequestClose={() => setIsNoteComposerVisible(false)}
+        onRequestClose={closeNoteComposer}
       >
-        <View style={styles.settingsModalRoot}>
+        <KeyboardAvoidingView
+          style={styles.settingsModalRoot}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={24}
+        >
           <Pressable
             style={[styles.modalBackdrop, { backgroundColor: overlayColor }]}
-            onPress={() => setIsNoteComposerVisible(false)}
+            onPress={closeNoteComposer}
           />
           <View
             style={[
@@ -1090,41 +1175,58 @@ export default function ReaderScreen() {
             <View style={styles.settingsSheetHeader}>
               <View style={styles.heroCopy}>
                 <ThemedText style={[styles.chapterEyebrow, { color: chromeText }]}>
-                  Notes
+                  Note
                 </ThemedText>
                 <ThemedText style={[styles.settingsSheetTitle, { color: textColor }]}>
-                  Linked Reader Note
+                  {editingNoteId ? "Edit Reader Note" : "Linked Reader Note"}
                 </ThemedText>
               </View>
               <Pressable
-                onPress={() => setIsNoteComposerVisible(false)}
+                onPress={closeNoteComposer}
                 style={[styles.focusReturnButton, { borderColor: panelBorder }]}
               >
                 <Text style={[styles.sheetActionText, { color: textColor }]}>Close</Text>
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.noteComposerContent}>
+            <View style={styles.noteComposerBody}>
               <View style={styles.noteContextBlock}>
                 <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
                   Selection
                 </ThemedText>
                 <ThemedText style={[styles.noteSelectionText, { color: textColor }]}>
-                  {selectionSnapshot?.text ?? "No active selection"}
+                  {noteSelectionSnapshot?.text ?? "No active selection"}
                 </ThemedText>
               </View>
 
-              {dictionaryEntries.length > 0 ? (
+              {noteDictionarySnapshot.length > 0 ? (
                 <View style={styles.noteContextBlock}>
                   <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
                     Dictionary Snapshot
                   </ThemedText>
-                  <ThemedText style={[styles.noteDictionaryText, { color: textColor }]}>
-                    {dictionaryEntries[0]?.key}
-                    {dictionaryEntries[0]?.reading ? ` · ${dictionaryEntries[0].reading}` : ""}
-                    {"\n"}
-                    {stripDefinitionHtml(dictionaryEntries[0]?.definition ?? "")}
-                  </ThemedText>
+                  <View
+                    style={[
+                      styles.noteDictionaryPanel,
+                      {
+                        borderColor: panelBorder,
+                        backgroundColor: modalCardColor,
+                      },
+                    ]}
+                  >
+                    <ScrollView
+                      style={styles.noteDictionaryScroll}
+                      contentContainerStyle={styles.noteDictionaryScrollContent}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      <ThemedText style={[styles.noteDictionaryText, { color: textColor }]}>
+                        {noteDictionarySnapshot[0]?.key}
+                        {noteDictionarySnapshot[0]?.reading ? ` · ${noteDictionarySnapshot[0].reading}` : ""}
+                        {"\n"}
+                        {stripDefinitionHtml(noteDictionarySnapshot[0]?.definition ?? "")}
+                      </ThemedText>
+                    </ScrollView>
+                  </View>
                 </View>
               ) : null}
 
@@ -1157,24 +1259,37 @@ export default function ReaderScreen() {
                   Saved notes keep the selected text, dictionary snapshot, and prompt seed so later AI explain/quiz/rewrite actions can reuse them.
                 </ThemedText>
               </View>
+            </View>
 
+            <View style={styles.noteFooterActions}>
+              {editingNoteId ? (
+                <Pressable
+                  onPress={deleteEditingNote}
+                  style={[
+                    styles.noteSecondaryButton,
+                    { borderColor: panelBorder, backgroundColor: "transparent" },
+                  ]}
+                >
+                  <Text style={[styles.sheetActionText, { color: textColor }]}>Delete</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={saveNote}
-                disabled={!selectionSnapshot || !noteDraft.trim()}
+                disabled={!noteSelectionSnapshot || !noteDraft.trim()}
                 style={[
                   styles.noteSaveButton,
                   {
                     borderColor: panelBorder,
                     backgroundColor: noteDraft.trim() ? accentSoft : "transparent",
-                    opacity: !selectionSnapshot || !noteDraft.trim() ? 0.5 : 1,
+                    opacity: !noteSelectionSnapshot || !noteDraft.trim() ? 0.5 : 1,
                   },
                 ]}
               >
                 <Text style={[styles.sheetActionText, { color: textColor }]}>Save note</Text>
               </Pressable>
-            </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ThemedView>
   );
@@ -1620,6 +1735,38 @@ function summarizeExcerpt(text: string) {
   return compact.length > 80 ? `${compact.slice(0, 80)}…` : compact;
 }
 
+function getTokenNoteMarkers(
+  token: ReaderToken,
+  ranges: { type: "token" | "sentence"; start: number; end: number }[],
+) {
+  const tokenRange = ranges.find(
+    (range) =>
+      range.type === "token" &&
+      token.start === range.start &&
+      token.end === range.end,
+  );
+
+  const sentenceRange = ranges.find(
+    (range) =>
+      range.type === "sentence" &&
+      token.start >= range.start &&
+      token.end <= range.end,
+  );
+
+  if (!tokenRange && !sentenceRange) {
+    return null;
+  }
+
+  return {
+    hasTokenNote: Boolean(tokenRange),
+    hasSentenceNote: Boolean(sentenceRange),
+    isSentenceStart: sentenceRange
+      ? token.start === sentenceRange.start
+      : false,
+    isSentenceEnd: sentenceRange ? token.end === sentenceRange.end : false,
+  };
+}
+
 function SettingsStepper({
   label,
   value,
@@ -1753,6 +1900,9 @@ const styles = StyleSheet.create({
   inlineUnitWithSpacing: {
     marginHorizontal: 4,
   },
+  inlineUnitContent: {
+    position: "relative",
+  },
   rubyUnit: {
     alignItems: "center",
     gap: 1,
@@ -1767,6 +1917,37 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 26,
     lineHeight: 38,
+  },
+  baseTokenWrap: {
+    position: "relative",
+  },
+  tokenNoteUnderline: {
+    position: "absolute",
+    left: 1,
+    right: 1,
+    bottom: -4,
+    height: 1.5,
+    borderRadius: 999,
+    backgroundColor: "#C77F2F",
+  },
+  sentenceNoteUnderline: {
+    position: "absolute",
+    left: -2,
+    right: -2,
+    bottom: -0.5,
+    height: 2.5,
+    backgroundColor: "#C77F2F",
+  },
+  sentenceNoteUnderlineStart: {
+    left: 0,
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+  },
+  sentenceNoteUnderlineEnd: {
+    right: 0,
+    borderTopRightRadius: 999,
+    borderBottomRightRadius: 999,
+    backgroundColor: "#C77F2F",
   },
   focusReturnButton: {
     minWidth: 72,
@@ -1794,6 +1975,16 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 28,
     gap: 14,
+  },
+  noteComposerSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+    gap: 14,
+    maxHeight: "82%",
   },
   settingsSheetHeader: {
     flexDirection: "row",
@@ -1886,10 +2077,23 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingRight: 8,
   },
+  modalHeaderActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
   modalTitle: {
     fontFamily: Fonts.rounded,
     fontSize: 18,
     lineHeight: 24,
+  },
+  modalIconButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
   },
   modalMeta: {
     fontSize: 13,
@@ -1915,22 +2119,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 42,
     paddingTop: 14,
-  },
-  lookupActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  lookupActionButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  lookupActionText: {
-    fontFamily: Fonts.rounded,
-    fontSize: 13,
-    lineHeight: 16,
   },
   rubyLegend: {
     flexDirection: "row",
@@ -2000,7 +2188,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  noteComposerContent: {
+  noteComposerBody: {
+    flexShrink: 1,
     gap: 14,
   },
   noteContextBlock: {
@@ -2014,6 +2203,19 @@ const styles = StyleSheet.create({
   noteDictionaryText: {
     fontSize: 14,
     lineHeight: 22,
+  },
+  noteDictionaryPanel: {
+    borderRadius: 18,
+    borderWidth: 1,
+    maxHeight: 180,
+    overflow: "hidden",
+  },
+  noteDictionaryScroll: {
+    flexGrow: 0,
+  },
+  noteDictionaryScrollContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   noteInput: {
     minHeight: 148,
@@ -2031,11 +2233,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   noteSaveButton: {
+    flex: 1,
     borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
     alignItems: "center",
+  },
+  noteFooterActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  noteSecondaryButton: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   resizeHandle: {
     position: "absolute",

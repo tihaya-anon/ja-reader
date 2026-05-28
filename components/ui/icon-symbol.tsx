@@ -24,6 +24,7 @@ const MAPPING = {
   'slider.horizontal.3': 'tune',
   'chevron.right.circle.fill': 'arrow-circle-right',
   'chevron.left.circle.fill': 'arrow-circle-left',
+  'square.and.pencil': 'edit-note',
 } as IconMapping;
 
 /**

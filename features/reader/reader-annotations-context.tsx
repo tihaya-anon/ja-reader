@@ -90,6 +90,7 @@ type ReaderAnnotationsContextValue = {
   isBookmarked: (chapterIndex: number, paragraphIndex: number) => boolean;
   getBookmark: (chapterIndex: number, paragraphIndex: number) => ReaderBookmark | undefined;
   addNote: (input: CreateNoteInput) => void;
+  updateNote: (noteId: string, body: string) => void;
   removeNote: (noteId: string) => void;
   getNotesForParagraph: (chapterIndex: number, paragraphIndex: number) => ReaderNote[];
   getNotesForSelection: (selection: ReaderSelectionSnapshot | null) => ReaderNote[];
@@ -209,9 +210,16 @@ export function ReaderAnnotationsProvider({ children }: PropsWithChildren) {
         setState((current) => {
           const now = new Date().toISOString();
           const title = input.title?.trim() || buildNoteTitle(input.selection);
+          const existing = current.notes.find(
+            (note) =>
+              note.selection.type === input.selection.type &&
+              note.selection.start === input.selection.start &&
+              note.selection.end === input.selection.end &&
+              note.selection.text === input.selection.text,
+          );
           const note: ReaderNote = {
-            id: createId("note"),
-            createdAt: now,
+            id: existing?.id ?? createId("note"),
+            createdAt: existing?.createdAt ?? now,
             updatedAt: now,
             chapterIndex: input.chapterIndex,
             paragraphIndex: input.paragraphIndex,
@@ -236,18 +244,50 @@ export function ReaderAnnotationsProvider({ children }: PropsWithChildren) {
             },
           };
 
-          const nextBookmarks = current.bookmarks.map((bookmark) =>
-            bookmark.chapterIndex === input.chapterIndex &&
-            bookmark.paragraphIndex === input.paragraphIndex
-              ? { ...bookmark, noteCount: bookmark.noteCount + 1 }
-              : bookmark,
-          );
+          const nextNotes = existing
+            ? current.notes.map((entry) => (entry.id === existing.id ? note : entry))
+            : [note, ...current.notes];
+
+          const noteDelta = existing ? 0 : 1;
+          const nextBookmarks = current.bookmarks.map((bookmark) => {
+            if (
+              bookmark.chapterIndex === input.chapterIndex &&
+              bookmark.paragraphIndex === input.paragraphIndex
+            ) {
+              return { ...bookmark, noteCount: bookmark.noteCount + noteDelta };
+            }
+
+            return bookmark;
+          });
 
           return {
             bookmarks: nextBookmarks,
-            notes: [note, ...current.notes],
+            notes: nextNotes,
           };
         });
+      },
+      updateNote: (noteId, body) => {
+        setState((current) => ({
+          ...current,
+          notes: current.notes.map((note) =>
+            note.id === noteId
+              ? {
+                  ...note,
+                  body: body.trim(),
+                  updatedAt: new Date().toISOString(),
+                  aiContext: {
+                    ...note.aiContext,
+                    promptSeed: buildAiPromptSeed(
+                      `Chapter ${note.chapterIndex + 1}`,
+                      note.paragraphText,
+                      note.selection,
+                      body,
+                    ),
+                  },
+                }
+              : note,
+          ),
+        }));
       },
       removeNote: (noteId) => {
         setState((current) => {
