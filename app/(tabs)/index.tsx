@@ -637,22 +637,6 @@ export default function ReaderScreen() {
           </Pressable>
         </View>
 
-        {paragraphNotes.length > 0 ? (
-          <View
-            style={[
-              styles.annotationStrip,
-              { borderColor: panelBorder, backgroundColor: panelColor },
-            ]}
-          >
-            <ThemedText style={[styles.annotationStripTitle, { color: textColor }]}>
-              {paragraphNotes.length} note{paragraphNotes.length > 1 ? "s" : ""} on this paragraph
-            </ThemedText>
-            <ThemedText style={[styles.annotationStripMeta, { color: chromeText }]}>
-              Latest: {paragraphNotes[0]?.title}
-            </ThemedText>
-          </View>
-        ) : null}
-
         <View
           style={[
             styles.readingViewport,
@@ -1209,7 +1193,7 @@ export default function ReaderScreen() {
                       styles.noteDictionaryPanel,
                       {
                         borderColor: panelBorder,
-                        backgroundColor: modalCardColor,
+                        backgroundColor: accentSoft,
                       },
                     ]}
                   >
@@ -1219,12 +1203,18 @@ export default function ReaderScreen() {
                       nestedScrollEnabled
                       keyboardShouldPersistTaps="handled"
                     >
-                      <ThemedText style={[styles.noteDictionaryText, { color: textColor }]}>
-                        {noteDictionarySnapshot[0]?.key}
-                        {noteDictionarySnapshot[0]?.reading ? ` · ${noteDictionarySnapshot[0].reading}` : ""}
-                        {"\n"}
-                        {stripDefinitionHtml(noteDictionarySnapshot[0]?.definition ?? "")}
-                      </ThemedText>
+                      <TextInput
+                        editable={false}
+                        multiline
+                        contextMenuHidden={false}
+                        showSoftInputOnFocus={false}
+                        value={`${noteDictionarySnapshot[0]?.key}${noteDictionarySnapshot[0]?.reading ? ` · ${noteDictionarySnapshot[0].reading}` : ""}\n${stripDefinitionHtml(noteDictionarySnapshot[0]?.definition ?? "")}`}
+                        style={[
+                          styles.noteDictionaryText,
+                          styles.noteDictionaryReadonlyInput,
+                          { color: textColor },
+                        ]}
+                      />
                     </ScrollView>
                   </View>
                 </View>
@@ -1864,22 +1854,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
   },
-  annotationStrip: {
-    borderRadius: 18,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 4,
-  },
-  annotationStripTitle: {
-    fontFamily: Fonts.rounded,
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  annotationStripMeta: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
   readingPanel: {
     userSelect: "none",
   },
@@ -2204,11 +2178,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
   },
+  noteDictionaryReadonlyInput: {
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    fontFamily: Fonts.serif,
+    textAlignVertical: "top",
+  },
   noteDictionaryPanel: {
     borderRadius: 18,
     borderWidth: 1,
     maxHeight: 180,
     overflow: "hidden",
+    borderStyle: "dashed",
   },
   noteDictionaryScroll: {
     flexGrow: 0,
@@ -2216,6 +2198,7 @@ const styles = StyleSheet.create({
   noteDictionaryScrollContent: {
     paddingHorizontal: 14,
     paddingVertical: 12,
+    gap: 6,
   },
   noteInput: {
     minHeight: 148,
