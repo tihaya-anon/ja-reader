@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
+import { readerScreenStyles as styles } from "@/components/reader/reader-screen-styles";
 import { ThemedText } from "@/components/themed-text";
-import { readerScreenStyles as styles } from "@/features/reader/reader-screen-styles";
 
 type SettingsStepperProps = {
   label: string;

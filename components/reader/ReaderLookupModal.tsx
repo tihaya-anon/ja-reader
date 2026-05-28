@@ -7,8 +7,8 @@ import Animated from "react-native-reanimated";
 
 import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { readerScreenStyles as styles } from "@/components/reader/reader-screen-styles";
 import type { ReaderNote } from "@/features/reader/reader-annotations-context";
-import { readerScreenStyles as styles } from "@/features/reader/reader-screen-styles";
 import type { ReaderSelection } from "@/features/reader/reader-screen-types";
 import { buildTokenMeta, stripDefinitionHtml } from "@/features/reader/reader-screen-utils";
 type DictionaryEntry = {

@@ -1,8 +1,8 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 
+import { readerScreenStyles as styles } from "@/components/reader/reader-screen-styles";
+import { SettingsStepper } from "@/components/reader/SettingsStepper";
 import { ThemedText } from "@/components/themed-text";
-import { readerScreenStyles as styles } from "@/features/reader/reader-screen-styles";
-import { SettingsStepper } from "@/features/reader/SettingsStepper";
 
 type ReaderSettingsModalProps = {
   visible: boolean;
