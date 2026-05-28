@@ -5,17 +5,20 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Fonts } from '@/constants/theme';
+import { ReaderAnnotationsProvider } from '@/features/reader/reader-annotations-context';
 import { ReaderChromeProvider, useReaderChrome } from '@/features/reader/reader-chrome-context';
 import { ReaderStateProvider } from '@/features/reader/reader-state-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   return (
-    <ReaderStateProvider>
-      <ReaderChromeProvider>
-        <ReaderTabs />
-      </ReaderChromeProvider>
-    </ReaderStateProvider>
+    <ReaderAnnotationsProvider>
+      <ReaderStateProvider>
+        <ReaderChromeProvider>
+          <ReaderTabs />
+        </ReaderChromeProvider>
+      </ReaderStateProvider>
+    </ReaderAnnotationsProvider>
   );
 }
 

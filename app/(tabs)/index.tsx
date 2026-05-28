@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -24,6 +25,10 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Fonts } from "@/constants/theme";
 import type { ReaderParagraph } from "@/data/book-data";
+import {
+  useReaderAnnotations,
+  type ReaderSelectionSnapshot,
+} from "@/features/reader/reader-annotations-context";
 import {
   getDictionaryEntriesForToken,
   getRubyTextForSurface,
@@ -85,8 +90,18 @@ export default function ReaderScreen() {
   } = useReaderSettings();
   const { isSettingsVisible, setIsSettingsVisible } = useReaderChrome();
   const setChromeNavigation = useSetReaderChromeNavigation();
+  const {
+    addBookmark,
+    addNote,
+    getBookmark,
+    getNotesForParagraph,
+    getNotesForSelection,
+    removeBookmark,
+  } = useReaderAnnotations();
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
   const [isLookupVisible, setIsLookupVisible] = useState(false);
+  const [isNoteComposerVisible, setIsNoteComposerVisible] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
   const pendingTapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTapRef = useRef<{
     paragraphIndex: number;
@@ -111,6 +126,14 @@ export default function ReaderScreen() {
   const dictionaryEntries = useMemo(
     () => getDictionaryEntriesForToken(selectedToken),
     [selectedToken],
+  );
+  const selectionSnapshot = useMemo(
+    () => (selection ? toSelectionSnapshot(selection) : null),
+    [selection],
+  );
+  const selectionNotes = useMemo(
+    () => getNotesForSelection(selectionSnapshot),
+    [getNotesForSelection, selectionSnapshot],
   );
 
   const chapterRubyMap = useMemo(
@@ -234,6 +257,12 @@ export default function ReaderScreen() {
       paddingHorizontal: appearanceSettings.horizontalInset,
     }),
     [appearanceSettings.horizontalInset, appearanceSettings.paragraphGap],
+  );
+  const currentParagraphText = chapter.paragraphs[selectedParagraphIndex]?.text ?? "";
+  const currentBookmark = getBookmark(chapterIndex, selectedParagraphIndex);
+  const paragraphNotes = useMemo(
+    () => getNotesForParagraph(chapterIndex, selectedParagraphIndex),
+    [chapterIndex, getNotesForParagraph, selectedParagraphIndex],
   );
 
   const clampedModalSettings = useMemo(
@@ -453,6 +482,43 @@ export default function ReaderScreen() {
     setIsLookupVisible(false);
   }
 
+  function toggleBookmark() {
+    if (currentBookmark) {
+      removeBookmark(currentBookmark.id);
+      return;
+    }
+
+    addBookmark({
+      chapterIndex,
+      paragraphIndex: selectedParagraphIndex,
+      paragraphText: currentParagraphText,
+      excerpt: summarizeExcerpt(currentParagraphText),
+    });
+  }
+
+  function openNoteComposer() {
+    setNoteDraft("");
+    setIsNoteComposerVisible(true);
+  }
+
+  function saveNote() {
+    if (!selectionSnapshot || !noteDraft.trim()) {
+      return;
+    }
+
+    addNote({
+      chapterIndex,
+      chapterTitle: chapter.title,
+      paragraphIndex: selectedParagraphIndex,
+      paragraphText: currentParagraphText,
+      selection: selectionSnapshot,
+      body: noteDraft,
+      dictionaryEntries,
+    });
+    setNoteDraft("");
+    setIsNoteComposerVisible(false);
+  }
+
   return (
     <ThemedView style={[styles.screen, { backgroundColor: pageBackground }]}>
       <View
@@ -477,7 +543,37 @@ export default function ReaderScreen() {
               {book.title}
             </ThemedText>
           </View>
+          <Pressable
+            onPress={toggleBookmark}
+            style={[
+              styles.headerActionButton,
+              {
+                borderColor: panelBorder,
+                backgroundColor: currentBookmark ? accentSoft : "transparent",
+              },
+            ]}
+          >
+            <Text style={[styles.headerActionText, { color: textColor }]}>
+              {currentBookmark ? "Bookmarked" : "Bookmark"}
+            </Text>
+          </Pressable>
         </View>
+
+        {paragraphNotes.length > 0 ? (
+          <View
+            style={[
+              styles.annotationStrip,
+              { borderColor: panelBorder, backgroundColor: panelColor },
+            ]}
+          >
+            <ThemedText style={[styles.annotationStripTitle, { color: textColor }]}>
+              {paragraphNotes.length} note{paragraphNotes.length > 1 ? "s" : ""} on this paragraph
+            </ThemedText>
+            <ThemedText style={[styles.annotationStripMeta, { color: chromeText }]}>
+              Latest: {paragraphNotes[0]?.title}
+            </ThemedText>
+          </View>
+        ) : null}
 
         <View
           style={[
@@ -823,6 +919,34 @@ export default function ReaderScreen() {
                 </GestureDetector>
               </View>
               <ScrollView contentContainerStyle={styles.modalBody}>
+                <View style={styles.lookupActions}>
+                  <Pressable
+                    onPress={toggleBookmark}
+                    style={[
+                      styles.lookupActionButton,
+                      {
+                        borderColor: panelBorder,
+                        backgroundColor: currentBookmark ? accentSoft : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.lookupActionText, { color: modalTextColor }]}>
+                      {currentBookmark ? "Remove bookmark" : "Add bookmark"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={openNoteComposer}
+                    style={[
+                      styles.lookupActionButton,
+                      { borderColor: panelBorder, backgroundColor: "transparent" },
+                    ]}
+                  >
+                    <Text style={[styles.lookupActionText, { color: modalTextColor }]}>
+                      Add note
+                    </Text>
+                  </Pressable>
+                </View>
+
                 {selection?.type === "sentence" ? (
                   <ThemedText
                     style={[styles.sentenceText, { color: modalTextColor }]}
@@ -889,6 +1013,33 @@ export default function ReaderScreen() {
                     No local dictionary entry for this token yet.
                   </ThemedText>
                 )}
+
+                {selectionNotes.length > 0 ? (
+                  <View style={styles.notesSection}>
+                    <ThemedText style={[styles.notesSectionTitle, { color: modalTextColor }]}>
+                      Notes
+                    </ThemedText>
+                    {selectionNotes.map((note) => (
+                      <View
+                        key={note.id}
+                        style={[
+                          styles.noteCard,
+                          { borderColor: panelBorder, backgroundColor: panelColor },
+                        ]}
+                      >
+                        <ThemedText style={[styles.noteTitle, { color: modalTextColor }]}>
+                          {note.title}
+                        </ThemedText>
+                        <ThemedText style={[styles.noteBody, { color: modalTextColor }]}>
+                          {note.body}
+                        </ThemedText>
+                        <ThemedText style={[styles.noteMeta, { color: chromeText }]}>
+                          AI ready · {note.aiContext.tags.join(" · ")}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </ScrollView>
 
               <GestureDetector gesture={resizeGesture}>
@@ -913,6 +1064,117 @@ export default function ReaderScreen() {
             </Animated.View>
           </View>
         </GestureHandlerRootView>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={isNoteComposerVisible}
+        onRequestClose={() => setIsNoteComposerVisible(false)}
+      >
+        <View style={styles.settingsModalRoot}>
+          <Pressable
+            style={[styles.modalBackdrop, { backgroundColor: overlayColor }]}
+            onPress={() => setIsNoteComposerVisible(false)}
+          />
+          <View
+            style={[
+              styles.settingsSheet,
+              {
+                backgroundColor: panelColor,
+                borderColor: panelBorder,
+                boxShadow: `0px 18px 34px ${dockShadow}`,
+              },
+            ]}
+          >
+            <View style={styles.settingsSheetHeader}>
+              <View style={styles.heroCopy}>
+                <ThemedText style={[styles.chapterEyebrow, { color: chromeText }]}>
+                  Notes
+                </ThemedText>
+                <ThemedText style={[styles.settingsSheetTitle, { color: textColor }]}>
+                  Linked Reader Note
+                </ThemedText>
+              </View>
+              <Pressable
+                onPress={() => setIsNoteComposerVisible(false)}
+                style={[styles.focusReturnButton, { borderColor: panelBorder }]}
+              >
+                <Text style={[styles.sheetActionText, { color: textColor }]}>Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.noteComposerContent}>
+              <View style={styles.noteContextBlock}>
+                <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
+                  Selection
+                </ThemedText>
+                <ThemedText style={[styles.noteSelectionText, { color: textColor }]}>
+                  {selectionSnapshot?.text ?? "No active selection"}
+                </ThemedText>
+              </View>
+
+              {dictionaryEntries.length > 0 ? (
+                <View style={styles.noteContextBlock}>
+                  <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
+                    Dictionary Snapshot
+                  </ThemedText>
+                  <ThemedText style={[styles.noteDictionaryText, { color: textColor }]}>
+                    {dictionaryEntries[0]?.key}
+                    {dictionaryEntries[0]?.reading ? ` · ${dictionaryEntries[0].reading}` : ""}
+                    {"\n"}
+                    {stripDefinitionHtml(dictionaryEntries[0]?.definition ?? "")}
+                  </ThemedText>
+                </View>
+              ) : null}
+
+              <View style={styles.noteContextBlock}>
+                <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
+                  Note
+                </ThemedText>
+                <TextInput
+                  multiline
+                  placeholder="Write what you want to remember, compare, or ask AI later."
+                  placeholderTextColor={chromeText}
+                  value={noteDraft}
+                  onChangeText={setNoteDraft}
+                  style={[
+                    styles.noteInput,
+                    {
+                      color: textColor,
+                      borderColor: panelBorder,
+                      backgroundColor: modalCardColor,
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.noteContextBlock}>
+                <ThemedText style={[styles.settingsLabel, { color: chromeText }]}>
+                  AI Hook
+                </ThemedText>
+                <ThemedText style={[styles.noteAiHint, { color: chromeText }]}>
+                  Saved notes keep the selected text, dictionary snapshot, and prompt seed so later AI explain/quiz/rewrite actions can reuse them.
+                </ThemedText>
+              </View>
+
+              <Pressable
+                onPress={saveNote}
+                disabled={!selectionSnapshot || !noteDraft.trim()}
+                style={[
+                  styles.noteSaveButton,
+                  {
+                    borderColor: panelBorder,
+                    backgroundColor: noteDraft.trim() ? accentSoft : "transparent",
+                    opacity: !selectionSnapshot || !noteDraft.trim() ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.sheetActionText, { color: textColor }]}>Save note</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </ThemedView>
   );
@@ -1274,6 +1536,22 @@ function buildSentenceSelection(
   };
 }
 
+function toSelectionSnapshot(selection: ReaderSelection): ReaderSelectionSnapshot {
+  if (selection.type === "sentence") {
+    return selection;
+  }
+
+  return {
+    type: "token",
+    text: selection.token.surface,
+    start: selection.token.start,
+    end: selection.token.end,
+    pos: selection.token.pos,
+    basicForm: selection.token.basicForm,
+    reading: selection.token.reading ? toHiragana(selection.token.reading) : undefined,
+  };
+}
+
 function findSentenceRange(text: string, tokenStart: number, tokenEnd: number) {
   const delimiters = /[。！？!?]/u;
   let start = tokenStart;
@@ -1335,6 +1613,11 @@ function toHiragana(value?: string) {
   return value.replace(/[ァ-ヶ]/g, (char) =>
     String.fromCharCode(char.charCodeAt(0) - 0x60),
   );
+}
+
+function summarizeExcerpt(text: string) {
+  const compact = text.replace(/\s+/g, " ").trim();
+  return compact.length > 80 ? `${compact.slice(0, 80)}…` : compact;
 }
 
 function SettingsStepper({
@@ -1422,6 +1705,33 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 14,
     lineHeight: 20,
+  },
+  headerActionButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  headerActionText: {
+    fontFamily: Fonts.rounded,
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  annotationStrip: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  annotationStripTitle: {
+    fontFamily: Fonts.rounded,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  annotationStripMeta: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   readingPanel: {
     userSelect: "none",
@@ -1606,6 +1916,22 @@ const styles = StyleSheet.create({
     paddingBottom: 42,
     paddingTop: 14,
   },
+  lookupActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  lookupActionButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  lookupActionText: {
+    fontFamily: Fonts.rounded,
+    fontSize: 13,
+    lineHeight: 16,
+  },
   rubyLegend: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1646,6 +1972,70 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  notesSection: {
+    gap: 10,
+  },
+  notesSectionTitle: {
+    fontFamily: Fonts.rounded,
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  noteCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+  },
+  noteTitle: {
+    fontFamily: Fonts.rounded,
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  noteBody: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  noteMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  noteComposerContent: {
+    gap: 14,
+  },
+  noteContextBlock: {
+    gap: 8,
+  },
+  noteSelectionText: {
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    lineHeight: 28,
+  },
+  noteDictionaryText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  noteInput: {
+    minHeight: 148,
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: Fonts.serif,
+    fontSize: 15,
+    lineHeight: 24,
+    textAlignVertical: "top",
+  },
+  noteAiHint: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  noteSaveButton: {
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: "center",
   },
   resizeHandle: {
     position: "absolute",
