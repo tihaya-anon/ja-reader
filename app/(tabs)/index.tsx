@@ -1012,8 +1012,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontFamily: Fonts.rounded,
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 24,
   },
   modalMeta: {
     fontSize: 13,
