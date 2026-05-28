@@ -1,16 +1,17 @@
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
 import {
   GestureDetector,
   GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import Animated from "react-native-reanimated";
 
+import { DictionaryHtmlContent } from "@/components/reader/DictionaryHtmlContent";
 import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { readerScreenStyles as styles } from "@/components/reader/reader-screen-styles";
 import type { ReaderNote } from "@/features/reader/reader-annotations-context";
 import type { ReaderSelection } from "@/features/reader/reader-screen-types";
-import { buildTokenMeta, stripDefinitionHtml } from "@/features/reader/reader-screen-utils";
+import { buildTokenMeta } from "@/features/reader/reader-screen-utils";
 type DictionaryEntry = {
   key: string;
   reading?: string;
@@ -145,12 +146,12 @@ export function ReaderLookupModal({
                         {entry.key}
                         {entry.reading ? ` · ${entry.reading}` : ""}
                       </ThemedText>
-                      <Text
-                        selectable
-                        style={[styles.entryDefinition, { color: modalTextColor }]}
-                      >
-                        {stripDefinitionHtml(entry.definition)}
-                      </Text>
+                      <DictionaryHtmlContent
+                        html={entry.definition}
+                        textColor={modalTextColor}
+                        linkColor={rubyDictionaryColor}
+                        accentColor={rubyBookColor}
+                      />
                     </View>
                   ))}
                 </>

@@ -230,7 +230,7 @@ export function ReaderAnnotationsProvider({ children }: PropsWithChildren) {
             dictionarySnapshot: input.dictionaryEntries.map((entry) => ({
               key: entry.key,
               reading: entry.reading,
-              definition: stripDefinitionHtml(entry.definition),
+              definition: entry.definition,
             })),
             aiContext: {
               status: "ready",

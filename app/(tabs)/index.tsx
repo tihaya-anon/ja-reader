@@ -170,18 +170,18 @@ export default function ReaderScreen() {
           rubyDictionaryColor={rubyDictionaryColor}
           onSelectParagraph={readerState.selectParagraph}
           onPressToken={(paragraphIndex, paragraph, token) => {
-            const isTokenSelected = isActiveTokenSelection(
-              controller.selection,
+            const isTokenSelected = isTokenSelectedInParagraph({
+              selection: controller.selection,
               token,
               paragraphIndex,
-              readerState.selectedParagraphIndex,
-            );
-            const isSentenceSelected = isActiveSentenceSelection(
-              controller.selection,
+              selectedParagraphIndex: readerState.selectedParagraphIndex,
+            });
+            const isSentenceSelected = isTokenInsideSentenceSelection({
+              selection: controller.selection,
               token,
               paragraphIndex,
-              readerState.selectedParagraphIndex,
-            );
+              selectedParagraphIndex: readerState.selectedParagraphIndex,
+            });
 
             controller.handleTokenPress(
               paragraphIndex,
@@ -329,12 +329,17 @@ function ReaderHeader({
   );
 }
 
-function isActiveTokenSelection(
-  selection: ReturnType<typeof useReaderScreenController>["selection"],
-  token: Parameters<Parameters<typeof ReaderChapterContent>[0]["onPressToken"]>[2],
-  paragraphIndex: number,
-  selectedParagraphIndex: number,
-) {
+function isTokenSelectedInParagraph({
+  selection,
+  token,
+  paragraphIndex,
+  selectedParagraphIndex,
+}: {
+  selection: ReturnType<typeof useReaderScreenController>["selection"];
+  token: Parameters<Parameters<typeof ReaderChapterContent>[0]["onPressToken"]>[2];
+  paragraphIndex: number;
+  selectedParagraphIndex: number;
+}) {
   return (
     paragraphIndex === selectedParagraphIndex &&
     selection?.type === "token" &&
@@ -345,12 +350,17 @@ function isActiveTokenSelection(
   );
 }
 
-function isActiveSentenceSelection(
-  selection: ReturnType<typeof useReaderScreenController>["selection"],
-  token: Parameters<Parameters<typeof ReaderChapterContent>[0]["onPressToken"]>[2],
-  paragraphIndex: number,
-  selectedParagraphIndex: number,
-) {
+function isTokenInsideSentenceSelection({
+  selection,
+  token,
+  paragraphIndex,
+  selectedParagraphIndex,
+}: {
+  selection: ReturnType<typeof useReaderScreenController>["selection"];
+  token: Parameters<Parameters<typeof ReaderChapterContent>[0]["onPressToken"]>[2];
+  paragraphIndex: number;
+  selectedParagraphIndex: number;
+}) {
   return (
     paragraphIndex === selectedParagraphIndex &&
     selection?.type === "sentence" &&

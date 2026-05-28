@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { DictionaryHtmlContent } from "@/components/reader/DictionaryHtmlContent";
 import { readerScreenStyles as styles } from "@/components/reader/reader-screen-styles";
 import { ThemedText } from "@/components/themed-text";
 
@@ -62,10 +63,6 @@ export function ReaderNoteComposerModal({
   onDelete,
 }: ReaderNoteComposerModalProps) {
   const dictionaryEntry = dictionarySnapshot[0];
-  const dictionaryValue = dictionaryEntry
-    ? `${dictionaryEntry.key}${dictionaryEntry.reading ? ` · ${dictionaryEntry.reading}` : ""}\n${dictionaryEntry.definition}`
-    : "";
-
   return (
     <Modal
       animationType="slide"
@@ -139,17 +136,13 @@ export function ReaderNoteComposerModal({
                     nestedScrollEnabled
                     keyboardShouldPersistTaps="handled"
                   >
-                    <TextInput
-                      editable={false}
-                      multiline
-                      contextMenuHidden={false}
-                      showSoftInputOnFocus={false}
-                      value={dictionaryValue}
-                      style={[
-                        styles.noteDictionaryText,
-                        styles.noteDictionaryReadonlyInput,
-                        { color: textColor },
-                      ]}
+                    <ThemedText style={[styles.noteDictionaryKey, { color: textColor }]}>
+                      {dictionaryEntry.key}
+                      {dictionaryEntry.reading ? ` · ${dictionaryEntry.reading}` : ""}
+                    </ThemedText>
+                    <DictionaryHtmlContent
+                      html={dictionaryEntry.definition}
+                      textColor={textColor}
                     />
                   </ScrollView>
                 </View>

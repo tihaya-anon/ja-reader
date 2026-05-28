@@ -368,6 +368,12 @@ export const readerScreenStyles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 28,
   },
+  noteDictionaryKey: {
+    fontFamily: Fonts.rounded,
+    fontSize: 14,
+    lineHeight: 19,
+    marginBottom: 10,
+  },
   noteDictionaryText: {
     fontSize: 14,
     lineHeight: 22,
