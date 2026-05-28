@@ -1,14 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-type ReaderModalSettings = {
+export type ReaderModalSettings = {
   x: number;
   y: number;
   width: number;
   height: number;
 };
 
-const SETTINGS_KEY = 'reader.modal-settings.v1';
+export type ReaderAppearanceSettings = {
+  fontFamily: 'serif' | 'sans' | 'rounded';
+  fontSize: number;
+  lineHeight: number;
+  paragraphGap: number;
+  horizontalInset: number;
+  verticalInset: number;
+};
+
+type ReaderSettings = {
+  modal: ReaderModalSettings;
+  appearance: ReaderAppearanceSettings;
+};
+
+const SETTINGS_KEY = 'reader.settings.v2';
 
 const DEFAULT_MODAL_SETTINGS: ReaderModalSettings = {
   x: 24,
@@ -17,8 +31,20 @@ const DEFAULT_MODAL_SETTINGS: ReaderModalSettings = {
   height: 320,
 };
 
+const DEFAULT_APPEARANCE_SETTINGS: ReaderAppearanceSettings = {
+  fontFamily: 'serif',
+  fontSize: 26,
+  lineHeight: 38,
+  paragraphGap: 26,
+  horizontalInset: 0,
+  verticalInset: 0,
+};
+
 export function useReaderSettings() {
-  const [modalSettings, setModalSettings] = useState<ReaderModalSettings>(DEFAULT_MODAL_SETTINGS);
+  const [settings, setSettings] = useState<ReaderSettings>({
+    modal: DEFAULT_MODAL_SETTINGS,
+    appearance: DEFAULT_APPEARANCE_SETTINGS,
+  });
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -31,12 +57,18 @@ export function useReaderSettings() {
           return;
         }
 
-        const parsed = JSON.parse(raw) as Partial<ReaderModalSettings>;
+        const parsed = JSON.parse(raw) as {
+          modal?: Partial<ReaderModalSettings>;
+          appearance?: Partial<ReaderAppearanceSettings>;
+        };
         if (!parsed) {
           return;
         }
 
-        setModalSettings((current) => mergeSettings(current, parsed));
+        setSettings((current) => ({
+          modal: mergeModalSettings(current.modal, parsed.modal),
+          appearance: mergeAppearanceSettings(current.appearance, parsed.appearance),
+        }));
       } catch {
         // Ignore invalid persisted state and fall back to defaults.
       } finally {
@@ -58,23 +90,37 @@ export function useReaderSettings() {
       return;
     }
 
-    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(modalSettings)).catch(() => {
+    AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)).catch(() => {
       // Ignore persistence failures in the MVP.
     });
-  }, [isLoaded, modalSettings]);
+  }, [isLoaded, settings]);
 
   return {
-    modalSettings,
+    modalSettings: settings.modal,
+    appearanceSettings: settings.appearance,
     setModalSettings: (next: Partial<ReaderModalSettings>) => {
-      setModalSettings((current) => mergeSettings(current, next));
+      setSettings((current) => ({
+        ...current,
+        modal: mergeModalSettings(current.modal, next),
+      }));
+    },
+    setAppearanceSettings: (next: Partial<ReaderAppearanceSettings>) => {
+      setSettings((current) => ({
+        ...current,
+        appearance: mergeAppearanceSettings(current.appearance, next),
+      }));
     },
   };
 }
 
-function mergeSettings(
+function mergeModalSettings(
   current: ReaderModalSettings,
-  next: Partial<ReaderModalSettings>
+  next?: Partial<ReaderModalSettings>
 ): ReaderModalSettings {
+  if (!next) {
+    return current;
+  }
+
   const sanitized = sanitizeSettings(next);
 
   return {
@@ -82,6 +128,29 @@ function mergeSettings(
     y: sanitized.y ?? current.y,
     width: sanitized.width ?? current.width,
     height: sanitized.height ?? current.height,
+  };
+}
+
+function mergeAppearanceSettings(
+  current: ReaderAppearanceSettings,
+  next?: Partial<ReaderAppearanceSettings>
+): ReaderAppearanceSettings {
+  if (!next) {
+    return current;
+  }
+
+  return {
+    fontFamily:
+      next.fontFamily === 'serif' ||
+      next.fontFamily === 'sans' ||
+      next.fontFamily === 'rounded'
+        ? next.fontFamily
+        : current.fontFamily,
+    fontSize: clampNumber(next.fontSize, 20, 40) ?? current.fontSize,
+    lineHeight: clampNumber(next.lineHeight, 28, 56) ?? current.lineHeight,
+    paragraphGap: clampNumber(next.paragraphGap, 16, 44) ?? current.paragraphGap,
+    horizontalInset: clampNumber(next.horizontalInset, 0, 36) ?? current.horizontalInset,
+    verticalInset: clampNumber(next.verticalInset, 0, 36) ?? current.verticalInset,
   };
 }
 

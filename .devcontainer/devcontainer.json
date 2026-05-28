@@ -4,13 +4,13 @@
 
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=/home/labuser/.codex,target=/root/.codex,type=bind,consistency=cached"
+  ],
 
-  "forwardPorts": [8081, 19000, 19001, 19002],
+  "forwardPorts": [19000, 19001, 19002],
 
   "portsAttributes": {
-    "8081": {
-      "label": "Expo Metro"
-    },
     "19000": {
       "label": "Expo Dev Tools"
     },
@@ -46,6 +46,7 @@
   },
 
   "remoteEnv": {
+    "CODEX_HOME": "/root/.codex",
     "EXPO_NO_DOCTOR": "1",
     "PYTHONUNBUFFERED": "1"
   }
