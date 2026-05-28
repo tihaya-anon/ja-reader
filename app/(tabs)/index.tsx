@@ -18,7 +18,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { runOnJS } from "react-native-worklets";
+import { scheduleOnRN } from "react-native-worklets";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -57,6 +57,7 @@ type ParagraphUnit = {
   token: ReaderToken;
   rubyText?: string;
   rubySource?: RubySource;
+  needsSideSpacing?: boolean;
 };
 
 const DOUBLE_TAP_DELAY_MS = 380;
@@ -379,7 +380,7 @@ export default function ReaderScreen() {
         })
         .onFinalize(() => {
           dragHandleActive.value = 0;
-          runOnJS(setModalSettings)({
+          scheduleOnRN(setModalSettings, {
             x: modalX.value,
             y: modalY.value,
           });
@@ -426,7 +427,7 @@ export default function ReaderScreen() {
         })
         .onFinalize(() => {
           resizeHandleActive.value = 0;
-          runOnJS(setModalSettings)({
+          scheduleOnRN(setModalSettings, {
             x: modalX.value,
             y: modalY.value,
             width: modalWidth.value,
@@ -521,6 +522,7 @@ export default function ReaderScreen() {
                         }
                         style={[
                           styles.inlineUnit,
+                          unit.needsSideSpacing && styles.inlineUnitWithSpacing,
                           isHighlighted.sentence && {
                             backgroundColor: sentenceHighlightColor,
                           },
@@ -1004,6 +1006,7 @@ function buildParagraphUnits(
         token,
         rubyText: token.reading,
         rubySource: "book",
+        needsSideSpacing: shouldAddRubySpacing(token.surface, token.reading),
       });
       continue;
     }
@@ -1028,6 +1031,7 @@ function buildParagraphUnits(
             token,
             rubyText: ruby,
             rubySource: "dictionary",
+            needsSideSpacing: shouldAddRubySpacing(token.surface, ruby),
           }
         : {
             token,
@@ -1078,6 +1082,7 @@ function findMergedParagraphUnit(
           token: buildMergedToken(group, surface, bookRuby),
           rubyText: bookRuby,
           rubySource: "book" as const,
+          needsSideSpacing: shouldAddRubySpacing(surface, bookRuby),
         },
       };
     }
@@ -1090,6 +1095,7 @@ function findMergedParagraphUnit(
           token: buildMergedToken(group, surface, dictionaryRuby),
           rubyText: dictionaryRuby,
           rubySource: "dictionary" as const,
+          needsSideSpacing: shouldAddRubySpacing(surface, dictionaryRuby),
         },
       };
     }
@@ -1143,6 +1149,45 @@ function buildMergedToken(
     posDetail3: firstToken.posDetail3,
     wordType: "MERGED",
   };
+}
+
+function shouldAddRubySpacing(surface: string, rubyText: string) {
+  const trimmedSurface = surface.trim();
+  const trimmedRuby = rubyText.trim();
+
+  if (!trimmedSurface || !trimmedRuby) {
+    return false;
+  }
+
+  return estimateRubyWidth(trimmedRuby) > estimateBaseWidth(trimmedSurface);
+}
+
+function estimateRubyWidth(text: string) {
+  let width = 0;
+
+  for (const char of text) {
+    width += isNarrowKana(char) ? 0.55 : 1;
+  }
+
+  return width;
+}
+
+function estimateBaseWidth(text: string) {
+  let width = 0;
+
+  for (const char of text) {
+    width += isWideJapaneseGlyph(char) ? 1 : 0.7;
+  }
+
+  return width;
+}
+
+function isNarrowKana(char: string) {
+  return "ゃゅょぁぃぅぇぉっャュョァィゥェォッヮゎ".includes(char);
+}
+
+function isWideJapaneseGlyph(char: string) {
+  return /[一-龯々ぁ-ゖァ-ヺー]/u.test(char);
 }
 
 function getTokenHighlightState({
@@ -1393,8 +1438,10 @@ const styles = StyleSheet.create({
   inlineUnit: {
     borderRadius: 8,
     justifyContent: "flex-end",
-    paddingHorizontal: 1,
     userSelect: "none",
+  },
+  inlineUnitWithSpacing: {
+    marginHorizontal: 4,
   },
   rubyUnit: {
     alignItems: "center",
